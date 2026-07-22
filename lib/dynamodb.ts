@@ -2,7 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({
-  region: process.env.AWS_REGION || 'ap-south-1',
+  region: process.env.APP_REGION || process.env.AWS_REGION || 'ap-south-1',
   // When running locally with env vars; on Lambda, uses IAM role automatically
   ...(process.env.AWS_ACCESS_KEY_ID && {
     credentials: {

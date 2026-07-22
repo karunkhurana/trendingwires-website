@@ -7,8 +7,14 @@ const nextConfig = {
       'i3.ytimg.com',
     ],
   },
-  // Required for AWS Amplify hosting
   output: 'standalone',
+  // Expose server-only env vars to Next.js runtime explicitly
+  env: {
+    ADMIN_PASSWORD:              process.env.ADMIN_PASSWORD              || '',
+    DYNAMODB_VIDEOS_TABLE:       process.env.DYNAMODB_VIDEOS_TABLE       || 'tw-videos',
+    DYNAMODB_SUBSCRIBERS_TABLE:  process.env.DYNAMODB_SUBSCRIBERS_TABLE  || 'tw-subscribers',
+    APP_REGION:                  process.env.APP_REGION                  || 'ap-south-1',
+  },
 };
 
 module.exports = nextConfig;
