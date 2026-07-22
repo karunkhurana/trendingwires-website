@@ -1,13 +1,19 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
+const region = process.env.APP_REGION || 'ap-south-1';
+
+// On Amplify SSR, AWS_ prefixed vars are blocked.
+// We use TW_AWS_KEY_ID / TW_AWS_SECRET instead.
+const keyId  = process.env.TW_AWS_KEY_ID;
+const secret = process.env.TW_AWS_SECRET;
+
 const client = new DynamoDBClient({
-  region: process.env.APP_REGION || process.env.AWS_REGION || 'ap-south-1',
-  // When running locally with env vars; on Lambda, uses IAM role automatically
-  ...(process.env.AWS_ACCESS_KEY_ID && {
+  region,
+  ...(keyId && secret && {
     credentials: {
-      accessKeyId:     process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      accessKeyId:     keyId,
+      secretAccessKey: secret,
     },
   }),
 });

@@ -14,6 +14,8 @@ const nextConfig = {
     DYNAMODB_VIDEOS_TABLE:       process.env.DYNAMODB_VIDEOS_TABLE       || 'tw-videos',
     DYNAMODB_SUBSCRIBERS_TABLE:  process.env.DYNAMODB_SUBSCRIBERS_TABLE  || 'tw-subscribers',
     APP_REGION:                  process.env.APP_REGION                  || 'ap-south-1',
+    TW_AWS_KEY_ID:               process.env.TW_AWS_KEY_ID               || '',
+    TW_AWS_SECRET:               process.env.TW_AWS_SECRET               || '',
   },
 };
 
