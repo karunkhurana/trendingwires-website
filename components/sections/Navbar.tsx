@@ -1,17 +1,27 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 
-const NAV_LINKS = [
-  { href: '/#videos',    label: 'Videos' },
-  { href: '/?category=ai-tech',   label: '🤖 AI & Tech' },
-  { href: '/?category=business',  label: '💼 Business' },
-  { href: '/?category=world',     label: '🌍 World' },
-  { href: '/?category=science',   label: '🔬 Science' },
+const CATEGORY_LINKS = [
+  { category: 'ai-tech',    label: '🤖 AI & Tech' },
+  { category: 'business',   label: '💼 Business' },
+  { category: 'world',      label: '🌍 World' },
+  { category: 'science',    label: '🔬 Science' },
 ];
 
+/** Smooth-scroll to the #videos section, accounting for fixed navbar height */
+function scrollToVideos() {
+  const el = document.getElementById('videos');
+  if (!el) return;
+  const navHeight = 64; // h-16 = 64px
+  const top = el.getBoundingClientRect().top + window.scrollY - navHeight - 12;
+  window.scrollTo({ top, behavior: 'smooth' });
+}
+
 export function Navbar() {
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen]         = useState(false);
 
@@ -21,15 +31,26 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
+  /** Navigate to category and scroll to videos */
+  function goCategory(category: string) {
+    router.push(`/?category=${category}`, { scroll: false });
+    // Small delay so the route update happens before we scroll
+    setTimeout(scrollToVideos, 80);
+    setOpen(false);
+  }
+
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-tw-black/95 backdrop-blur-md shadow-[0_2px_20px_rgba(229,9,20,0.15)]' : 'bg-transparent'
+        scrolled
+          ? 'bg-tw-black/95 backdrop-blur-md shadow-[0_2px_20px_rgba(229,9,20,0.15)]'
+          : 'bg-transparent'
       }`}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2">
           <span className="text-2xl font-black tracking-tight">
             <span className="text-white">TRENDING</span>
             <span className="text-tw-red"> WIRES</span>
@@ -38,14 +59,25 @@ export function Navbar() {
 
         {/* Desktop nav */}
         <ul className="hidden md:flex items-center gap-6 text-sm font-semibold">
-          {NAV_LINKS.map(l => (
-            <li key={l.href}>
-              <Link
-                href={l.href}
+          {/* Videos — scrolls to section */}
+          <li>
+            <button
+              onClick={() => { setOpen(false); scrollToVideos(); }}
+              className="text-gray-400 hover:text-white transition-colors duration-200"
+            >
+              Videos
+            </button>
+          </li>
+
+          {/* Category links */}
+          {CATEGORY_LINKS.map(l => (
+            <li key={l.category}>
+              <button
+                onClick={() => goCategory(l.category)}
                 className="text-gray-400 hover:text-white transition-colors duration-200"
               >
                 {l.label}
-              </Link>
+              </button>
             </li>
           ))}
         </ul>
@@ -78,15 +110,22 @@ export function Navbar() {
       {open && (
         <div className="md:hidden bg-tw-dark border-t border-tw-border px-4 pb-4">
           <ul className="flex flex-col gap-3 pt-3">
-            {NAV_LINKS.map(l => (
-              <li key={l.href}>
-                <Link
-                  href={l.href}
-                  onClick={() => setOpen(false)}
-                  className="block text-gray-300 hover:text-white py-1 text-sm font-semibold"
+            <li>
+              <button
+                onClick={() => { setOpen(false); scrollToVideos(); }}
+                className="block text-gray-300 hover:text-white py-1 text-sm font-semibold w-full text-left"
+              >
+                Videos
+              </button>
+            </li>
+            {CATEGORY_LINKS.map(l => (
+              <li key={l.category}>
+                <button
+                  onClick={() => goCategory(l.category)}
+                  className="block text-gray-300 hover:text-white py-1 text-sm font-semibold w-full text-left"
                 >
                   {l.label}
-                </Link>
+                </button>
               </li>
             ))}
             <li>
