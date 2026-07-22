@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Impact', 'Arial Black', sans-serif;
+  --font-body:    'Inter', 'system-ui', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: #0A0A0A;
+  color: #FFFFFF;
+  font-family: var(--font-body);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: #111; }
+::-webkit-scrollbar-thumb { background: #E50914; border-radius: 3px; }
+
+/* Star swirl background effect */
+.star-bg {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(229,9,20,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(100,100,255,0.04) 0%, transparent 50%),
+    #0A0A0A;
+}
+
+/* Spinning rings */
+.ring {
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 50%;
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Video card hover */
+.video-card:hover .video-overlay { opacity: 1; }
+.video-overlay {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Category pill active */
+.cat-pill-active {
+  background: #E50914;
+  color: #fff;
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #1A1A1A 25%, #2A2A2A 50%, #1A1A1A 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* Red glow button */
+.btn-red {
+  @apply bg-tw-red hover:bg-tw-redHover text-white font-bold px-6 py-3 rounded-full
+         transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(229,9,20,0.5)];
+}
