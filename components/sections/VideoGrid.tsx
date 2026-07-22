@@ -139,7 +139,12 @@ function Grid() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/videos?category=${category}&limit=12`)
+    // Use the external API Gateway directly — avoids Amplify proxy issues
+    const base = process.env.NEXT_PUBLIC_API_URL || '';
+    const url  = base
+      ? `${base}/videos?category=${category}&limit=12`
+      : `/api/videos?category=${category}&limit=12`;
+    fetch(url)
       .then(r => r.json())
       .then(j => { setVideos(j.data || []); setLoading(false); })
       .catch(() => setLoading(false));

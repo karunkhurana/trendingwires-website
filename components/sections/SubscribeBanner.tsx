@@ -11,7 +11,9 @@ export function SubscribeBanner() {
     if (!email) return;
     setStatus('loading');
     try {
-      const res  = await fetch('/api/subscribe', {
+      const base = process.env.NEXT_PUBLIC_API_URL || '';
+      const url  = base ? `${base}/subscribe` : `/api/subscribe`;
+      const res  = await fetch(url, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ email }),

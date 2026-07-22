@@ -106,10 +106,8 @@ export class TrendingWiresStack extends cdk.Stack {
         { name: 'APP_REGION',                     value: this.region },
       ],
       customRules: [
-        // SPA routing
+        // SPA routing fallback
         { source: '/<*>', target: '/index.html', status: '404-200' },
-        // API proxy to API Gateway (optional — can also call API directly)
-        { source: '/api/<*>', target: api.url, status: '200' },
       ],
     });
 
