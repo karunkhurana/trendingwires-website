@@ -66,18 +66,24 @@ export class TrendingWiresStack extends cdk.Stack {
         allowCredentials: true,
       },
       deployOptions: {
-        stageName:          'prod',
-        cachingEnabled:     true,
-        cacheClusterEnabled: true,
-        cacheClusterSize:   '0.5',
-        cacheTtl:           cdk.Duration.seconds(60),
+        stageName:           'prod',
+        cachingEnabled:      false,  // disabled — query params not keyed properly with cache
+        cacheClusterEnabled: false,
       },
     });
 
     const videosResource    = api.root.addResource('videos');
     const subscribeResource = api.root.addResource('subscribe');
 
-    videosResource.addMethod('GET', new apigw.LambdaIntegration(videosLambda, { proxy: true }));
+    // Videos GET — include query params in cache key so each category is cached separately
+    videosResource.addMethod('GET', new apigw.LambdaIntegration(videosLambda, { proxy: true }), {
+      requestParameters: {
+        'method.request.querystring.category': false,
+        'method.request.querystring.limit':    false,
+      },
+      methodResponses: [{ statusCode: '200' }],
+    });
+
     subscribeResource.addMethod('POST', new apigw.LambdaIntegration(subscribeLambda, { proxy: true }));
 
     // ── Amplify Hosting ───────────────────────────────────────────────────────
