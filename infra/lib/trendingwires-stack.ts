@@ -56,8 +56,14 @@ export class TrendingWiresStack extends cdk.Stack {
       restApiName: 'trendingwires-api',
       description: 'TrendingWires REST API',
       defaultCorsPreflightOptions: {
-        allowOrigins: apigw.Cors.ALL_ORIGINS,
+        allowOrigins: [
+          'https://trendingwires.com',
+          'https://www.trendingwires.com',
+          'https://main.d3l1yp2dl6knj3.amplifyapp.com',
+        ],
         allowMethods: apigw.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Api-Key'],
+        allowCredentials: true,
       },
       deployOptions: {
         stageName:          'prod',
