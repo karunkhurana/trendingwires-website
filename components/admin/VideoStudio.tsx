@@ -886,6 +886,115 @@ function JobProgress({ job, slug }: { job: Job; slug: string }) {
   );
 }
 
+// ─── Thumbnail Editor ─────────────────────────────────────────────────────────
+function ThumbnailEditor({ slug, pipelineUrl }: { slug: string; pipelineUrl: string }) {
+  const [thumbUrl,    setThumbUrl]    = useState(`${pipelineUrl}/pipeline/thumb/${slug}?t=${Date.now()}`);
+  const [generating,  setGenerating]  = useState(false);
+  const [uploading,   setUploading]   = useState(false);
+  const [prompt,      setPrompt]      = useState('');
+  const [showPrompt,  setShowPrompt]  = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const refresh = () => setThumbUrl(`${pipelineUrl}/pipeline/thumb/${slug}?t=${Date.now()}`);
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('thumbnail', file);
+      form.append('slug', slug);
+      const r = await fetch(`${pipelineUrl}/pipeline/upload-thumbnail`, { method: 'POST', body: form });
+      if (!r.ok) throw new Error(await r.text());
+      refresh();
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Upload failed'); }
+    setUploading(false);
+  };
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) return;
+    setGenerating(true);
+    try {
+      const r = await fetch(`${pipelineUrl}/pipeline/generate-thumbnail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, prompt }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      refresh();
+      setShowPrompt(false);
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Generation failed'); }
+    setGenerating(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {/* Thumbnail image */}
+      <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-sm w-full group" style={{ aspectRatio: '16/9' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img key={thumbUrl} src={thumbUrl} alt="thumbnail"
+          className="w-full h-full object-cover"
+          onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+          <button onClick={() => fileRef.current?.click()} disabled={uploading}
+            className="bg-white text-gray-800 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow hover:bg-gray-100 flex items-center gap-1">
+            {uploading ? '⏳' : '📁'} {uploading ? 'Uploading…' : 'Upload'}
+          </button>
+          <button onClick={() => setShowPrompt(!showPrompt)}
+            className="bg-purple-500 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow hover:bg-purple-600 flex items-center gap-1">
+            ✨ AI Generate
+          </button>
+        </div>
+        {/* Loading overlay */}
+        {generating && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <div className="text-white text-xs font-bold animate-pulse">✨ Generating…</div>
+          </div>
+        )}
+      </div>
+
+      <p className="text-[10px] text-gray-400 text-center">YouTube thumbnail · hover to change</p>
+
+      {/* Hidden file input */}
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/jpg" className="hidden"
+        onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+
+      {/* AI prompt panel */}
+      {showPrompt && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 flex flex-col gap-2">
+          <p className="text-[10px] font-bold text-purple-700">✨ AI Thumbnail ($0.04 · DALL-E 3)</p>
+          <input value={prompt} onChange={e => setPrompt(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleGenerate()}
+            placeholder="e.g. Indian cricket team celebrating victory, blue orange theme, stadium"
+            className="w-full border border-purple-200 bg-white text-gray-800 px-3 py-2 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-300 placeholder:text-gray-300" />
+          <div className="flex gap-2">
+            <button onClick={handleGenerate} disabled={!prompt.trim() || generating}
+              className="flex-1 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white text-xs font-bold py-2 rounded-lg transition-colors">
+              {generating ? '⏳ Generating…' : '✨ Generate'}
+            </button>
+            <button onClick={() => setShowPrompt(false)}
+              className="px-3 py-2 border border-gray-200 text-gray-500 text-xs rounded-lg hover:bg-gray-50">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Quick action buttons (always visible below) */}
+      <div className="flex gap-1.5">
+        <button onClick={() => fileRef.current?.click()} disabled={uploading}
+          className="flex-1 text-[10px] font-bold py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors">
+          📁 Upload Image
+        </button>
+        <button onClick={() => { setShowPrompt(true); if (!prompt) setPrompt(''); }}
+          className="flex-1 text-[10px] font-bold py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors">
+          ✨ AI Generate
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Review Panel — shown after render completes ──────────────────────────────
 function ReviewPanel({ slug, job, pipelineUrl, youtubeUrl, isUploading, uploading, uploadNow }: {
   slug: string;
@@ -931,16 +1040,7 @@ function ReviewPanel({ slug, job, pipelineUrl, youtubeUrl, isUploading, uploadin
         </div>
         {/* Thumbnail */}
         <div className="flex-1 flex flex-col gap-1.5 min-w-0">
-          <div className="rounded-xl overflow-hidden border border-gray-200 shadow-sm w-full" style={{ aspectRatio: '16/9' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`${pipelineUrl}/pipeline/thumb/${slug}`}
-              alt="thumbnail"
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.background = '#f3f4f6'; (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
-          <p className="text-[10px] text-gray-400 text-center">YouTube thumbnail</p>
+          <ThumbnailEditor slug={slug} pipelineUrl={pipelineUrl} />
           <a href={`${pipelineUrl}/pipeline/preview/${slug}`} download={`${slug}.mp4`}
             className="w-full border border-gray-200 text-gray-600 text-xs font-bold py-2 px-3 rounded-xl text-center transition-colors bg-white hover:bg-gray-50">
             ⬇ Download MP4
