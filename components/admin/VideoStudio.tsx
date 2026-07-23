@@ -449,7 +449,7 @@ function BgModeSelector({
 
 // ─── Script preview card ──────────────────────────────────────────────────────
 function ScriptPreview({
-  script, onEdit, onRun, running, bgMode, onBgModeChange, customVideoUrl, onCustomVideoChange, musicUrl, onMusicChange,
+  script, onEdit, onRun, running, bgMode, onBgModeChange, customVideoUrl, onCustomVideoChange, musicUrl, onMusicChange, onScriptChange,
 }: {
   script: Script;
   onEdit: () => void;
@@ -461,8 +461,10 @@ function ScriptPreview({
   onCustomVideoChange: (url: string) => void;
   musicUrl: MusicOpt;
   onMusicChange: (v: MusicOpt) => void;
+  onScriptChange: (s: Script) => void;
 }) {
   const [uploadToYT, setUploadToYT] = useState(false);
+  const [generatingImg, setGeneratingImg] = useState<number | null>(null);
 
   const field = (label: string, value: string | undefined | null, mono = false): JSX.Element | null => value ? (
     <div className="flex flex-col gap-0.5">
@@ -470,6 +472,48 @@ function ScriptPreview({
       <span className={`text-sm text-gray-800 leading-relaxed whitespace-pre-line ${mono ? 'font-mono text-xs' : ''}`}>{String(value)}</span>
     </div>
   ) : null;
+
+  // Get scenes for image panel
+  const scenes = (script.scenes as Array<{headline:string;subText?:string;imageQuery?:string;imageUrl?:string}> | undefined) || [];
+  const hasScenes = scenes.length > 0;
+  const showImagePanel = (bgMode === 'auto-image' || bgMode === 'story') && hasScenes;
+
+  const generateImage = async (sceneIdx: number, query: string) => {
+    setGeneratingImg(sceneIdx);
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, sceneIdx, slug: String(script.slug) }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      // Update the scene's imageUrl in script
+      const updatedScenes = [...scenes];
+      updatedScenes[sceneIdx] = { ...updatedScenes[sceneIdx], imageUrl: d.url };
+      onScriptChange({ ...script, scenes: updatedScenes });
+    } catch (e: unknown) {
+      alert('Image generation failed: ' + (e instanceof Error ? e.message : 'unknown'));
+    }
+    setGeneratingImg(null);
+  };
+
+  const uploadSceneImage = async (sceneIdx: number, file: File) => {
+    const form = new FormData();
+    form.append('image', file);
+    form.append('sceneIdx', String(sceneIdx));
+    form.append('slug', String(script.slug));
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/upload-scene-image`, { method: 'POST', body: form });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      const updatedScenes = [...scenes];
+      updatedScenes[sceneIdx] = { ...updatedScenes[sceneIdx], imageUrl: d.url };
+      onScriptChange({ ...script, scenes: updatedScenes });
+    } catch (e: unknown) {
+      alert('Upload failed: ' + (e instanceof Error ? e.message : 'unknown'));
+    }
+  };
 
   return (
     <Card>
@@ -516,6 +560,77 @@ function ScriptPreview({
           <div className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-xs text-gray-500 font-mono whitespace-pre-line max-h-32 overflow-y-auto">
             {String(script.description)}
           </div>
+        </div>
+      )}
+
+      {/* ── Scene Images Panel ── */}
+      {showImagePanel && (
+        <div className="px-5 pb-4 border-t border-gray-100 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Scene Images</span>
+            <span className="text-[10px] text-gray-400">AI uses these as backgrounds · ~$0.04 per AI generation</span>
+          </div>
+          <div className="flex flex-col gap-3">
+            {scenes.map((scene, i) => {
+              const fileRef = { current: null as HTMLInputElement | null };
+              return (
+                <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex gap-3">
+                  {/* Thumbnail */}
+                  <div className="w-16 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200 border border-gray-100">
+                    {scene.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={scene.imageUrl.startsWith('http') ? scene.imageUrl : `${PIPELINE_URL}/static/${scene.imageUrl}`}
+                        alt="" className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl">
+                        {i === scenes.length - 1 ? '📡' : '🖼️'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info + actions */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                    <div>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase">Scene {i+1}</span>
+                      <p className="text-xs font-bold text-gray-800 truncate">{scene.headline?.replace(/\\n/g,' ')}</p>
+                      {scene.imageQuery && (
+                        <p className="text-[10px] text-blue-500 mt-0.5 truncate">🔍 "{scene.imageQuery}"</p>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {/* Generate with AI */}
+                      <button
+                        onClick={() => generateImage(i, scene.imageQuery || scene.headline || 'trending news')}
+                        disabled={generatingImg !== null}
+                        className="text-[10px] font-bold px-2 py-1 rounded-lg bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-50 transition-colors flex items-center gap-1"
+                      >
+                        {generatingImg === i ? '⏳' : '✨'} {generatingImg === i ? 'Generating…' : 'AI Generate ($0.04)'}
+                      </button>
+                      {/* Upload own */}
+                      <label className="text-[10px] font-bold px-2 py-1 rounded-lg bg-gray-700 hover:bg-gray-800 text-white cursor-pointer transition-colors flex items-center gap-1">
+                        📁 Upload
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={e => e.target.files?.[0] && uploadSceneImage(i, e.target.files[0])} />
+                      </label>
+                      {/* Clear */}
+                      {scene.imageUrl && (
+                        <button
+                          onClick={() => {
+                            const updated = [...scenes];
+                            updated[i] = { ...updated[i], imageUrl: undefined };
+                            onScriptChange({ ...script, scenes: updated });
+                          }}
+                          className="text-[10px] font-bold px-2 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors"
+                        >✕ Clear</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-gray-400 mt-2">If you don&apos;t upload, Pexels auto-search is used. Upload your own for exact matches.</p>
         </div>
       )}
 
@@ -772,6 +887,7 @@ export function VideoStudio() {
           onCustomVideoChange={setCustomVideoUrl}
           musicUrl={musicUrl}
           onMusicChange={setMusicUrl}
+          onScriptChange={setScript}
         />
       )}
 
