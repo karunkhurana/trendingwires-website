@@ -54,28 +54,29 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
   };
 
   return (
-    <div className="min-h-screen bg-tw-black flex items-center justify-center px-4">
-      <div className="bg-tw-card border border-tw-border rounded-2xl p-8 w-full max-w-sm">
-        <h1 className="text-2xl font-black text-white mb-1">
-          TRENDING<span className="text-tw-red"> WIRES</span>
-        </h1>
-        <p className="text-gray-500 text-sm mb-6">Admin Panel</p>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-lg p-8 w-full max-w-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-2xl font-black text-gray-900">TRENDING</span>
+          <span className="text-2xl font-black text-red-500">WIRES</span>
+        </div>
+        <p className="text-gray-400 text-sm mb-6">Admin Panel</p>
         <form onSubmit={submit} className="flex flex-col gap-4">
           <input
             type="password"
             value={pw}
             onChange={e => setPw(e.target.value)}
             placeholder="Admin password"
-            className="bg-[#111] border border-tw-border text-white px-4 py-3 rounded-xl focus:outline-none focus:border-tw-red"
+            className="border border-gray-200 text-gray-800 bg-gray-50 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400 text-sm"
             autoFocus
           />
-          {err && <p className="text-red-400 text-sm">{err}</p>}
+          {err && <p className="text-red-500 text-sm">{err}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="bg-tw-red hover:bg-tw-redHover text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50"
+            className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50 text-sm"
           >
-            {loading ? 'Checking…' : 'Login'}
+            {loading ? 'Checking…' : 'Sign In'}
           </button>
         </form>
       </div>
@@ -329,18 +330,20 @@ export function AdminPanel() {
   if (!authed) return <LoginScreen onLogin={() => setAuthed(true)} />;
 
   return (
-    <div className="min-h-screen bg-tw-black">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-tw-dark border-b border-tw-border sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <span className="font-black text-white">
-            TRENDING<span className="text-tw-red"> WIRES</span>
-            <span className="text-gray-500 font-normal text-sm ml-2">Admin</span>
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+          <span className="font-black text-gray-900">
+            TRENDING<span className="text-red-500"> WIRES</span>
+            <span className="text-gray-400 font-normal text-sm ml-2">Studio</span>
           </span>
           <div className="flex items-center gap-3">
-            <span className="text-green-400 text-xs font-medium">● Live</span>
+            <span className="text-green-500 text-xs font-semibold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"/>Live
+            </span>
             <a href="/" target="_blank" rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white text-xs border border-tw-border px-3 py-1.5 rounded-lg transition-colors">
+              className="text-gray-500 hover:text-gray-800 text-xs border border-gray-200 px-3 py-1.5 rounded-lg transition-colors bg-white">
               View Site ↗
             </a>
           </div>
@@ -348,7 +351,7 @@ export function AdminPanel() {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6">
+      <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-5">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -356,18 +359,18 @@ export function AdminPanel() {
             { label: 'Categories', value: new Set(videos.map(v => v.category)).size },
             { label: 'Latest', value: videos[0] ? new Date(videos[0].publishedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : '—' },
           ].map(s => (
-            <div key={s.label} className="bg-tw-card border border-tw-border rounded-2xl p-4 text-center">
-              <div className="text-2xl font-black text-tw-red">{s.value}</div>
-              <div className="text-xs text-gray-500 mt-1 uppercase tracking-wide">{s.label}</div>
+            <div key={s.label} className="bg-white border border-gray-200 rounded-2xl p-4 text-center shadow-sm">
+              <div className="text-2xl font-black text-red-500">{s.value}</div>
+              <div className="text-xs text-gray-400 mt-1 uppercase tracking-wide">{s.label}</div>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-[#111] border border-[#222] rounded-xl p-1 w-fit">
-          {([['studio','🎬 Video Studio'],['published','📋 Published Videos']] as const).map(([id, label]) => (
+        <div className="flex gap-1 bg-gray-100 border border-gray-200 rounded-xl p-1 w-fit">
+          {([['studio','🎬 Video Studio'],['published','📋 Published']] as const).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === id ? 'bg-tw-red text-white' : 'text-gray-400 hover:text-white'}`}>
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === id ? 'bg-red-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
               {label}
             </button>
           ))}
@@ -385,16 +388,16 @@ export function AdminPanel() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-black text-white">
                   📋 Published Videos
-                  <span className="text-gray-500 font-normal text-sm ml-2">({videos.length})</span>
+                  <span className="text-gray-400 font-normal text-sm ml-2">({videos.length})</span>
                 </h2>
                 <button onClick={loadVideos} disabled={loading}
-                  className="text-gray-400 hover:text-white text-xs border border-tw-border px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                  className="text-gray-500 hover:text-gray-800 text-xs border border-gray-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 bg-white">
                   {loading ? 'Loading…' : '↻ Refresh'}
                 </button>
               </div>
               {loading ? (
                 <div className="flex flex-col gap-3">
-                  {[1,2,3].map(i => <div key={i} className="bg-tw-card border border-tw-border rounded-2xl h-20 skeleton" />)}
+                  {[1,2,3].map(i => <div key={i} className="bg-white border border-gray-200 rounded-2xl h-20 skeleton" />)}
                 </div>
               ) : (
                 <VideoList videos={videos} onDelete={handleDelete} />
