@@ -110,13 +110,18 @@ function ScriptPreview({
           {field('Voice – Hook', script.voiceHook as string)}
           {field('Voice – Fact', script.voiceFact as string)}
           {field('Hashtags', script.hashtags as string)}
-          {!!script.imageUrl && (
-            <div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">Image</span>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={String(script.imageUrl)} alt="video bg" className="w-full h-28 object-cover rounded-xl border border-gray-100" />
-            </div>
-          )}
+                {!!script.imageUrl && (
+                  <div>
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1">Image</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={String(script.imageUrl)}
+                      alt="video bg"
+                      className="w-full h-28 object-cover rounded-xl border border-gray-100"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                )}
         </div>
       </div>
 
