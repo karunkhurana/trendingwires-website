@@ -578,7 +578,12 @@ function ScriptPreview({
   // Get scenes for image panel
   const scenes = (script.scenes as Array<{headline:string;subText?:string;imageQuery?:string;imageUrl?:string}> | undefined) || [];
   const hasScenes = scenes.length > 0;
-  const showImagePanel = (bgMode === 'auto-image' || bgMode === 'story') && hasScenes;
+  // Show image panel for auto-image and story modes
+  // If no scenes array, show single image slot using script.imageUrl
+  const showImagePanel = bgMode === 'auto-image' || bgMode === 'story';
+  const displayScenes = hasScenes ? scenes : (script.hookLine ? [
+    { headline: String(script.hookLine), subText: String(script.hookSub || ''), imageQuery: String(script.slug || '').replace(/-/g,' '), imageUrl: script.imageUrl as string | undefined },
+  ] : []);
 
   const generateImage = async (sceneIdx: number, query: string) => {
     setGeneratingImg(sceneIdx);
@@ -590,10 +595,13 @@ function ScriptPreview({
       });
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      // Update the scene's imageUrl in script
-      const updatedScenes = [...scenes];
-      updatedScenes[sceneIdx] = { ...updatedScenes[sceneIdx], imageUrl: d.url };
-      onScriptChange({ ...script, scenes: updatedScenes });
+      if (hasScenes) {
+        const updatedScenes = [...scenes];
+        updatedScenes[sceneIdx] = { ...updatedScenes[sceneIdx], imageUrl: d.url };
+        onScriptChange({ ...script, scenes: updatedScenes });
+      } else {
+        onScriptChange({ ...script, imageUrl: d.url });
+      }
     } catch (e: unknown) {
       alert('Image generation failed: ' + (e instanceof Error ? e.message : 'unknown'));
     }
@@ -609,9 +617,13 @@ function ScriptPreview({
       const r = await fetch(`${PIPELINE_URL}/pipeline/upload-scene-image`, { method: 'POST', body: form });
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      const updatedScenes = [...scenes];
-      updatedScenes[sceneIdx] = { ...updatedScenes[sceneIdx], imageUrl: d.url };
-      onScriptChange({ ...script, scenes: updatedScenes });
+      if (hasScenes) {
+        const updatedScenes = [...scenes];
+        updatedScenes[sceneIdx] = { ...updatedScenes[sceneIdx], imageUrl: d.url };
+        onScriptChange({ ...script, scenes: updatedScenes });
+      } else {
+        onScriptChange({ ...script, imageUrl: d.url });
+      }
     } catch (e: unknown) {
       alert('Upload failed: ' + (e instanceof Error ? e.message : 'unknown'));
     }
@@ -673,7 +685,7 @@ function ScriptPreview({
             <span className="text-[10px] text-gray-400">AI uses these as backgrounds · ~$0.04 per AI generation</span>
           </div>
           <div className="flex flex-col gap-3">
-            {scenes.map((scene, i) => {
+            {displayScenes.map((scene, i) => {
               const fileRef = { current: null as HTMLInputElement | null };
               return (
                 <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex gap-3">
@@ -719,9 +731,13 @@ function ScriptPreview({
                       {scene.imageUrl && (
                         <button
                           onClick={() => {
-                            const updated = [...scenes];
-                            updated[i] = { ...updated[i], imageUrl: undefined };
-                            onScriptChange({ ...script, scenes: updated });
+                            if (hasScenes) {
+                              const updated = [...scenes];
+                              updated[i] = { ...updated[i], imageUrl: undefined };
+                              onScriptChange({ ...script, scenes: updated });
+                            } else {
+                              onScriptChange({ ...script, imageUrl: undefined });
+                            }
                           }}
                           className="text-[10px] font-bold px-2 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors"
                         >✕ Clear</button>
