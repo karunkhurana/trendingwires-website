@@ -225,6 +225,142 @@ function PexelsVideoBrowser({ onSelect }: { onSelect: (path: string, thumb: stri
   );
 }
 
+// ─── Pixabay Music Browser ────────────────────────────────────────────────────
+type PixabayTrack = {
+  id: number;
+  title: string;
+  duration: number;
+  previewUrl: string;
+  tags: string;
+};
+
+function MusicBrowser({ onSelect }: { onSelect: (localPath: string, title: string) => void }) {
+  const [query,      setQuery]      = useState('news');
+  const [tracks,     setTracks]     = useState<PixabayTrack[]>([]);
+  const [page,       setPage]       = useState(1);
+  const [total,      setTotal]      = useState(0);
+  const [loading,    setLoading]    = useState(false);
+  const [err,        setErr]        = useState('');
+  const [playing,    setPlaying]    = useState<number | null>(null);
+  const [audio,      setAudio]      = useState<HTMLAudioElement | null>(null);
+  const [downloading, setDownloading] = useState<number | null>(null);
+  const PER_PAGE = 8;
+
+  const search = async (q: string, p: number) => {
+    setLoading(true); setErr('');
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/search-bgm?q=${encodeURIComponent(q)}&page=${p}&per_page=${PER_PAGE}`);
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      setTracks(d.tracks || []);
+      setTotal(d.total || 0);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Search failed'); }
+    setLoading(false);
+  };
+
+  useEffect(() => { search(query, 1); }, []); // eslint-disable-line
+
+  const handleSearch = () => { setPage(1); search(query, 1); };
+  const handlePage   = (p: number) => { setPage(p); search(query, p); };
+
+  const togglePlay = (track: PixabayTrack) => {
+    if (audio) { audio.pause(); setAudio(null); }
+    if (playing === track.id) { setPlaying(null); return; }
+    const a = new Audio(track.previewUrl);
+    a.volume = 0.5;
+    a.play().catch(() => {});
+    a.onended = () => setPlaying(null);
+    setAudio(a);
+    setPlaying(track.id);
+  };
+
+  const handlePick = async (track: PixabayTrack) => {
+    setDownloading(track.id);
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/download-bgm`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: track.previewUrl, id: track.id, title: track.title }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      onSelect(d.path, track.title);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Download failed'); }
+    setDownloading(null);
+  };
+
+  const totalPages = Math.ceil(total / PER_PAGE);
+  const fmtDur = (s: number) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Search bar */}
+      <div className="flex gap-2">
+        <input value={query} onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleSearch()}
+          placeholder="Search music… e.g. news, upbeat, corporate, sport"
+          className="flex-1 border border-gray-200 bg-gray-50 text-gray-800 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400 placeholder:text-gray-300" />
+        <button onClick={handleSearch} disabled={loading}
+          className="bg-gray-900 hover:bg-gray-700 disabled:opacity-40 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
+          {loading ? '⏳' : '🔍'}
+        </button>
+      </div>
+
+      {/* Quick chips */}
+      <div className="flex flex-wrap gap-1.5">
+        {['news','upbeat','corporate','sport','cinematic','lofi','dramatic','ambient'].map(t => (
+          <button key={t} onClick={() => { setQuery(t); setPage(1); search(t, 1); }}
+            className="text-[10px] border border-gray-200 text-gray-500 hover:border-gray-400 px-2.5 py-1 rounded-full bg-white transition-colors">
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {err && <p className="text-xs text-red-500">{err}</p>}
+
+      {/* Track list */}
+      {tracks.length > 0 && (
+        <>
+          <div className="flex flex-col gap-1.5">
+            {tracks.map(track => (
+              <div key={track.id}
+                className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-3 py-2.5 hover:border-gray-300 transition-colors">
+                {/* Play button */}
+                <button onClick={() => togglePlay(track)}
+                  className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm transition-colors ${playing === track.id ? 'bg-red-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
+                  {playing === track.id ? '⏹' : '▶'}
+                </button>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-gray-800 truncate">{track.title}</p>
+                  <p className="text-[10px] text-gray-400">{fmtDur(track.duration)} · {track.tags.split(',').slice(0,3).join(', ')}</p>
+                </div>
+                {/* Use button */}
+                <button onClick={() => handlePick(track)} disabled={downloading !== null}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white disabled:opacity-50 transition-colors flex-shrink-0 flex items-center gap-1">
+                  {downloading === track.id ? '⬇' : '✓'} {downloading === track.id ? 'Saving…' : 'Use'}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-400">{total.toLocaleString()} tracks</span>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => handlePage(page-1)} disabled={page<=1||loading}
+                className="text-xs border border-gray-200 px-2.5 py-1.5 rounded-lg bg-white disabled:opacity-40 hover:bg-gray-50 font-bold">← Prev</button>
+              <span className="text-xs text-gray-500 px-1">{page}/{totalPages}</span>
+              <button onClick={() => handlePage(page+1)} disabled={page>=totalPages||loading}
+                className="text-xs border border-gray-200 px-2.5 py-1.5 rounded-lg bg-white disabled:opacity-40 hover:bg-gray-50 font-bold">Next →</button>
+            </div>
+          </div>
+          <p className="text-[9px] text-gray-300 text-center">Music by Pixabay — free for commercial use</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Music Picker ─────────────────────────────────────────────────────────────
 function MusicPicker({
   value, onChange,
@@ -233,21 +369,9 @@ function MusicPicker({
   onChange: (v: MusicOpt) => void;
 }) {
   const fileRef   = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadedName, setUploadedName] = useState('');
-  const [testAudio, setTestAudio] = useState<HTMLAudioElement | null>(null);
-  const [testing,   setTesting]   = useState('');
-
-  const testPlay = (url: string, key: string) => {
-    if (testAudio) { testAudio.pause(); testAudio.remove(); }
-    if (testing === key) { setTesting(''); return; }
-    const a = new Audio(url);
-    a.volume = 0.4;
-    a.play().catch(() => {});
-    a.onended = () => setTesting('');
-    setTestAudio(a);
-    setTesting(key);
-  };
+  const [uploading,    setUploading]    = useState(false);
+  const [selectedTitle, setSelectedTitle] = useState('');
+  const [showBrowser,  setShowBrowser]  = useState(false);
 
   const handleUpload = async (file: File) => {
     setUploading(true);
@@ -257,62 +381,60 @@ function MusicPicker({
       const r = await fetch(`${PIPELINE_URL}/pipeline/upload-bgm`, { method: 'POST', body: form });
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      setUploadedName(file.name);
-      onChange(d.url); // CDN-accessible URL
+      setSelectedTitle(file.name);
+      onChange(d.url);
+      setShowBrowser(false);
     } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Upload failed'); }
     setUploading(false);
+  };
+
+  const handleBrowserSelect = (path: string, title: string) => {
+    onChange(path);
+    setSelectedTitle(title);
+    setShowBrowser(false);
   };
 
   return (
     <div className="flex flex-col gap-2">
       <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Background Music</label>
 
-      {/* None option */}
-      <button onClick={() => onChange('none')}
-        className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all flex items-center gap-2 ${value === 'none' ? 'border-gray-400 bg-gray-100 text-gray-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}>
-        <span>🔇</span>
-        <div>
-          <div className="font-bold">No Music</div>
-          <div className="text-gray-400">Silent background</div>
+      {/* Current selection */}
+      {value && value !== 'none' ? (
+        <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+          <span className="text-green-600 text-sm">🎵</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-green-700 truncate">{selectedTitle || value.split('/').pop()}</p>
+            <p className="text-[10px] text-green-500">Will play at low volume in background</p>
+          </div>
+          <button onClick={() => { onChange('none'); setSelectedTitle(''); }}
+            className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-2 py-1 rounded-lg bg-white flex-shrink-0">
+            Remove
+          </button>
         </div>
-      </button>
-
-      {/* Preset options — hidden since empty, but keep for future */}
-      {MUSIC_PRESETS.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
-          {MUSIC_PRESETS.map(p => (
-            <button key={p.key} onClick={() => onChange(p.url)}
-              className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-0.5 ${value === p.url ? 'border-red-400 bg-red-50 ring-2 ring-red-200' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-              <span className={`text-xs font-bold ${value === p.url ? 'text-red-700' : 'text-gray-700'}`}>{p.label}</span>
-              <span className="text-[10px] text-gray-400">{p.desc}</span>
-            </button>
-          ))}
+      ) : (
+        <div className="bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-xs text-gray-400 text-center">
+          No music selected — video will be silent
         </div>
       )}
 
-      {/* Tip box */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-700">
-        <p className="font-bold mb-1">💡 Best sources for free music:</p>
-        <ul className="space-y-0.5 text-amber-600">
-          <li>• <a href="https://pixabay.com/music" target="_blank" rel="noopener noreferrer" className="underline">pixabay.com/music</a> — download MP3, then upload below</li>
-          <li>• <a href="https://freemusicarchive.org" target="_blank" rel="noopener noreferrer" className="underline">freemusicarchive.org</a> — CC licensed tracks</li>
-          <li>• YouTube Audio Library (in YouTube Studio)</li>
-        </ul>
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <button onClick={() => setShowBrowser(!showBrowser)}
+          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-colors ${showBrowser ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}>
+          🔍 Browse Pixabay Music
+        </button>
+        <label className="flex-1 py-2 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-600 hover:border-gray-300 transition-colors text-center cursor-pointer disabled:opacity-50">
+          {uploading ? '⏳ Uploading…' : '📁 Upload MP3'}
+          <input ref={fileRef} type="file" accept="audio/mp3,audio/mpeg,audio/wav,audio/*" className="hidden"
+            onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+        </label>
       </div>
 
-      {/* Upload own music */}
-      <input ref={fileRef} type="file" accept="audio/mp3,audio/mpeg,audio/wav,audio/*" className="hidden"
-        onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
-      <button onClick={() => fileRef.current?.click()} disabled={uploading}
-        className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all flex items-center gap-2 ${uploadedName && value.includes('bgm') ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 bg-white hover:border-gray-400'}`}>
-        <span>{uploading ? '⏳' : uploadedName ? '✅' : '📁'}</span>
-        <div>
-          <div className={`font-bold ${uploadedName && value.includes('bgm') ? 'text-green-700' : 'text-gray-600'}`}>
-            {uploading ? 'Uploading…' : uploadedName || 'Upload Your Own MP3'}
-          </div>
-          <div className="text-gray-400">Any MP3 or WAV file</div>
+      {showBrowser && (
+        <div className="border border-gray-200 rounded-xl p-3 bg-white">
+          <MusicBrowser onSelect={handleBrowserSelect} />
         </div>
-      </button>
+      )}
     </div>
   );
 }
