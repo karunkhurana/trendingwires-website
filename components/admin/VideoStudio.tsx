@@ -222,8 +222,8 @@ function PexelsVideoBrowser({ onSelect }: { onSelect: (path: string, thumb: stri
 
 // ─── Background Mode Selector ─────────────────────────────────────────────────
 const BG_MODES: { id: BgMode; icon: string; label: string; desc: string }[] = [
-  { id: 'auto-image',   icon: '🖼️', label: 'Auto Images',    desc: 'AI fetches 2 relevant Pexels photos' },
-  { id: 'no-image',     icon: '⬛', label: 'No Image',        desc: 'Dark bg with star animation + text' },
+  { id: 'auto-image',   icon: '🖼️', label: 'Auto Images',    desc: 'AI fetches relevant Pexels photos' },
+  { id: 'no-image',     icon: '⬛', label: 'Text Only',       desc: 'Black bg, star animation, no image — original style' },
   { id: 'custom-video', icon: '🎬', label: 'Pick Video',      desc: 'Browse free Pexels videos or upload your own' },
 ];
 
