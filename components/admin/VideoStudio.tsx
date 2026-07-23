@@ -608,9 +608,12 @@ function ScriptPreview({
       });
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      if (hasScenes) {
-        const updatedScenes = [...scenes];
-        updatedScenes[sceneIdx] = { ...updatedScenes[sceneIdx], imageUrl: d.url };
+      // Always read from current script prop — avoids stale closure
+      const currentScenes = (script.scenes as typeof scenes) || [];
+      if (currentScenes.length > 0) {
+        const updatedScenes = currentScenes.map((s, i) =>
+          i === sceneIdx ? { ...s, imageUrl: d.url } : s
+        );
         onScriptChange({ ...script, scenes: updatedScenes });
       } else {
         onScriptChange({ ...script, imageUrl: d.url });
@@ -630,9 +633,12 @@ function ScriptPreview({
       const r = await fetch(`${PIPELINE_URL}/pipeline/upload-scene-image`, { method: 'POST', body: form });
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
-      if (hasScenes) {
-        const updatedScenes = [...scenes];
-        updatedScenes[sceneIdx] = { ...updatedScenes[sceneIdx], imageUrl: d.url };
+      // Always read from current script prop — avoids stale closure
+      const currentScenes = (script.scenes as typeof scenes) || [];
+      if (currentScenes.length > 0) {
+        const updatedScenes = currentScenes.map((s, i) =>
+          i === sceneIdx ? { ...s, imageUrl: d.url } : s
+        );
         onScriptChange({ ...script, scenes: updatedScenes });
       } else {
         onScriptChange({ ...script, imageUrl: d.url });
