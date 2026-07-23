@@ -185,10 +185,14 @@ function ScriptPreview({
   );
 }
 
-// ─── Job progress ─────────────────────────────────────────────────────────────
+// ─── Job progress + post-render upload ───────────────────────────────────────
 function JobProgress({ job, slug }: { job: Job; slug: string }) {
   const isDone   = job.status === 'done';
   const isFailed = job.status === 'error';
+  const [uploading,   setUploading]   = useState(false);
+  const [uploadJobId, setUploadJobId] = useState<string|null>(null);
+  const uploadJob = useJobPoller(uploadJobId);
+
   const steps = [
     { key: '🎙️ Generating voiceover',   done: false },
     { key: '🎬 Rendering video',         done: false },
@@ -197,9 +201,26 @@ function JobProgress({ job, slug }: { job: Job; slug: string }) {
   ];
   const logText = job.log.map(l => l.msg).join('\n');
   steps[0].done = logText.includes('Voiceover done');
-  steps[1].done = logText.includes('Video rendered');
+  steps[1].done = logText.includes('Video rendered') || logText.includes('Video:');
   steps[2].done = logText.includes('Thumbnail ready');
   steps[3].done = !!(job.result?.youtubeUrl);
+
+  const uploadNow = async () => {
+    setUploading(true);
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/upload`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      });
+      const d = await r.json();
+      if (d.jobId) setUploadJobId(d.jobId);
+      else alert(d.error || 'Upload failed');
+    } catch { alert('Pipeline server offline'); }
+    setUploading(false);
+  };
+
+  const youtubeUrl = job.result?.youtubeUrl || uploadJob?.result?.youtubeUrl;
+  const isUploading = uploadJob?.status === 'running' || uploadJob?.status === 'pending';
 
   return (
     <Card>
@@ -232,7 +253,12 @@ function JobProgress({ job, slug }: { job: Job; slug: string }) {
               l.msg.startsWith('⏭') ? 'text-gray-500' : 'text-gray-300'
             }`}>{l.msg}</div>
           ))}
+          {/* Upload job log */}
+          {uploadJob?.log.map((l, i) => (
+            <div key={`u${i}`} className={`text-xs font-mono ${l.msg.startsWith('✓') ? 'text-green-400' : l.msg.startsWith('❌') ? 'text-red-400' : 'text-blue-300'}`}>{l.msg}</div>
+          ))}
           {!isDone && !isFailed && <div className="text-amber-400 text-xs font-mono animate-pulse">● processing…</div>}
+          {isUploading && <div className="text-blue-400 text-xs font-mono animate-pulse">● uploading to YouTube…</div>}
         </div>
       </div>
 
@@ -245,32 +271,62 @@ function JobProgress({ job, slug }: { job: Job; slug: string }) {
       {/* Result */}
       {isDone && job.result && (
         <div className="px-5 pb-5 flex flex-col gap-3">
-          <div className="text-sm font-bold text-green-600">🎉 Done!</div>
-          <div className="flex gap-2">
-            <a href={`${PIPELINE_URL}/pipeline/preview/${slug}`} download={`${slug}.mp4`}
-              className="flex-1 border border-gray-200 text-gray-600 hover:text-gray-800 text-xs font-bold py-2.5 px-4 rounded-xl text-center transition-colors bg-white hover:bg-gray-50">
+          {/* Video preview */}
+          <div className="relative mx-auto rounded-2xl overflow-hidden bg-black border border-gray-200 shadow-lg" style={{ width: 160, aspectRatio: '9/16' }}>
+            <video
+              src={`${PIPELINE_URL}/pipeline/preview/${slug}`}
+              controls
+              className="w-full h-full object-cover"
+              preload="metadata"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2">
+            {/* Download */}
+            <a
+              href={`${PIPELINE_URL}/pipeline/preview/${slug}`}
+              download={`${slug}.mp4`}
+              className="w-full border border-gray-200 text-gray-600 hover:text-gray-800 text-sm font-bold py-3 px-4 rounded-xl text-center transition-colors bg-white hover:bg-gray-50"
+            >
               ⬇ Download MP4
             </a>
-            {job.result.youtubeUrl ? (
-              <a href={job.result.youtubeUrl} target="_blank" rel="noopener noreferrer"
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-2.5 px-4 rounded-xl text-center transition-colors">
-                ▶ View on YouTube
-              </a>
-            ) : (
-              <div className="flex-1 border border-gray-100 text-gray-300 text-xs py-2.5 px-4 rounded-xl text-center">
-                Not uploaded
+
+            {/* Upload to YouTube — shown only if not already uploaded */}
+            {!youtubeUrl && (
+              <button
+                onClick={uploadNow}
+                disabled={uploading || isUploading}
+                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold py-3 px-4 rounded-xl transition-all hover:shadow-lg hover:shadow-red-100 flex items-center justify-center gap-2"
+              >
+                {isUploading || uploading ? (
+                  <><span className="animate-spin text-base">⚙️</span> Uploading…</>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white flex-shrink-0"><path d="M23.5 6.2s-.2-1.6-.9-2.3c-.9-.9-1.8-.9-2.3-1C17.6 2.7 12 2.7 12 2.7s-5.6 0-8.3.2c-.5.1-1.5.1-2.3 1-.7.7-.9 2.3-.9 2.3S.3 8 .3 9.8v1.7c0 1.8.2 3.6.2 3.6s.2 1.6.9 2.3c.9.9 2 .9 2.5 1 1.8.2 7.7.2 7.7.2s5.6 0 8.3-.2c.5-.1 1.5-.1 2.3-1 .7-.7.9-2.3.9-2.3s.2-1.8.2-3.6V9.8c0-1.8-.2-3.6-.2-3.6zM9.7 15.5V8.1l6.6 3.7-6.6 3.7z"/></svg>
+                    Publish to YouTube
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* YouTube URL when uploaded */}
+            {youtubeUrl && (
+              <div className="flex flex-col gap-2">
+                <a
+                  href={youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-3 px-4 rounded-xl text-center transition-colors"
+                >
+                  ▶ View on YouTube
+                </a>
+                <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 text-center">
+                  <a href={youtubeUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-green-600 text-xs font-bold hover:underline break-all">{youtubeUrl}</a>
+                </div>
               </div>
             )}
-          </div>
-          {job.result.youtubeUrl && (
-            <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2 text-center">
-              <a href={job.result.youtubeUrl} target="_blank" rel="noopener noreferrer"
-                className="text-green-600 text-xs font-bold hover:underline break-all">{job.result.youtubeUrl}</a>
-            </div>
-          )}
-          {/* Inline preview */}
-          <div className="mx-auto w-36 rounded-2xl overflow-hidden bg-black border border-gray-200 shadow" style={{ aspectRatio: '9/16' }}>
-            <video src={`${PIPELINE_URL}/pipeline/preview/${slug}`} controls className="w-full h-full object-cover" preload="metadata" />
           </div>
         </div>
       )}
