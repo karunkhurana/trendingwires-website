@@ -430,6 +430,19 @@ function MusicPicker({
         </label>
       </div>
 
+      {/* YouTube Audio Library tip */}
+      <a href="https://studio.youtube.com/channel/UC/music" target="_blank" rel="noopener noreferrer"
+        className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 hover:bg-red-100 transition-colors group">
+        <svg viewBox="0 0 24 24" className="w-5 h-5 fill-red-500 flex-shrink-0">
+          <path d="M23.5 6.2s-.2-1.6-.9-2.3c-.9-.9-1.8-.9-2.3-1C17.6 2.7 12 2.7 12 2.7s-5.6 0-8.3.2c-.5.1-1.5.1-2.3 1-.7.7-.9 2.3-.9 2.3S.3 8 .3 9.8v1.7c0 1.8.2 3.6.2 3.6s.2 1.6.9 2.3c.9.9 2 .9 2.5 1 1.8.2 7.7.2 7.7.2s5.6 0 8.3-.2c.5-.1 1.5-.1 2.3-1 .7-.7.9-2.3.9-2.3s.2-1.8.2-3.6V9.8c0-1.8-.2-3.6-.2-3.6zM9.7 15.5V8.1l6.6 3.7-6.6 3.7z"/>
+        </svg>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-red-700">YouTube Audio Library ↗</p>
+          <p className="text-[10px] text-red-500">100% copyright-free for YouTube · Download MP3 → Upload here</p>
+        </div>
+        <span className="text-red-400 group-hover:text-red-600 text-xs">→</span>
+      </a>
+
       {showBrowser && (
         <div className="border border-gray-200 rounded-xl p-3 bg-white">
           <MusicBrowser onSelect={handleBrowserSelect} />
