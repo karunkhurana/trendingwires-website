@@ -132,6 +132,31 @@ function ScriptPreview({
 
       {/* Publish controls */}
       <div className="px-5 pb-5 flex flex-col gap-3">
+        {/* textInImage toggle — shown only for text-image type */}
+        {(script.videoType as string) === 'text-image' && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex flex-col gap-2">
+            <p className="text-xs font-semibold text-blue-700">Image content mode</p>
+            <div className="flex gap-2">
+              {[
+                { value: false, label: '🖼️ Photo/Background', desc: 'Image has no text — we overlay our hook/fact' },
+                { value: true,  label: '📊 Has Text/Infographic', desc: 'Image has its own text — we stay out of the way' },
+              ].map(opt => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => { const updated = { ...script, textInImage: opt.value }; onEdit(); setTimeout(() => {}, 0); }}
+                  className={`flex-1 p-2.5 rounded-lg border text-left text-xs transition-all ${
+                    !!(script.textInImage) === opt.value
+                      ? 'border-blue-400 bg-blue-100 text-blue-800'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <div className="font-bold">{opt.label}</div>
+                  <div className="text-gray-400 mt-0.5">{opt.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <label className="flex items-center gap-2.5 cursor-pointer select-none">
           <div className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${uploadToYT ? 'bg-red-500' : 'bg-gray-200'}`}
             onClick={() => setUploadToYT(!uploadToYT)}>
