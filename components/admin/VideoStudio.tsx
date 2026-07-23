@@ -4,11 +4,40 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 const PIPELINE_URL = process.env.NEXT_PUBLIC_PIPELINE_URL || 'http://localhost:3333';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type BgMode = 'auto-image' | 'no-image' | 'custom-video' | 'story';
+type BgMode   = 'auto-image' | 'no-image' | 'custom-video' | 'story';
+type MusicOpt = 'none' | 'upload' | string; // string = preset key
 type JobResult = { youtubeUrl?: string; videoPath?: string; thumbPath?: string };
 type LogLine   = { msg: string };
 type Job       = { id: string; status: string; log: LogLine[]; result: JobResult | null; error: string | null };
 type Script    = Record<string, unknown>;
+
+// Preset music options — public CDN tracks (no login needed)
+const MUSIC_PRESETS: { key: string; label: string; desc: string; url: string }[] = [
+  {
+    key:   'upbeat-news',
+    label: '📰 Upbeat News',
+    desc:  'Fast-paced, professional news beat',
+    url:   'https://cdn.pixabay.com/audio/2023/10/30/audio_5ba1e09cdf.mp3',
+  },
+  {
+    key:   'corporate-inspire',
+    label: '💼 Corporate',
+    desc:  'Clean motivational corporate beat',
+    url:   'https://cdn.pixabay.com/audio/2024/02/28/audio_a31e2c0c34.mp3',
+  },
+  {
+    key:   'cinematic-tension',
+    label: '🎬 Cinematic',
+    desc:  'Dramatic cinematic tension',
+    url:   'https://cdn.pixabay.com/audio/2023/05/17/audio_7a77b7e1aa.mp3',
+  },
+  {
+    key:   'lofi-chill',
+    label: '🎵 Lo-Fi Chill',
+    desc:  'Relaxed lo-fi background',
+    url:   'https://cdn.pixabay.com/audio/2024/01/15/audio_ca1a5f71f8.mp3',
+  },
+];
 
 // ─── Job poller ───────────────────────────────────────────────────────────────
 function useJobPoller(jobId: string | null) {
@@ -220,6 +249,94 @@ function PexelsVideoBrowser({ onSelect }: { onSelect: (path: string, thumb: stri
   );
 }
 
+// ─── Music Picker ─────────────────────────────────────────────────────────────
+function MusicPicker({
+  value, onChange,
+}: {
+  value: MusicOpt;
+  onChange: (v: MusicOpt) => void;
+}) {
+  const fileRef   = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedName, setUploadedName] = useState('');
+  const [testAudio, setTestAudio] = useState<HTMLAudioElement | null>(null);
+  const [testing,   setTesting]   = useState('');
+
+  const testPlay = (url: string, key: string) => {
+    if (testAudio) { testAudio.pause(); testAudio.remove(); }
+    if (testing === key) { setTesting(''); return; }
+    const a = new Audio(url);
+    a.volume = 0.4;
+    a.play().catch(() => {});
+    a.onended = () => setTesting('');
+    setTestAudio(a);
+    setTesting(key);
+  };
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('music', file);
+      const r = await fetch(`${PIPELINE_URL}/pipeline/upload-bgm`, { method: 'POST', body: form });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      setUploadedName(file.name);
+      onChange(d.url); // CDN-accessible URL
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Upload failed'); }
+    setUploading(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Background Music</label>
+
+      {/* None option */}
+      <button onClick={() => onChange('none')}
+        className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all flex items-center gap-2 ${value === 'none' ? 'border-gray-400 bg-gray-100 text-gray-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'}`}>
+        <span>🔇</span>
+        <div>
+          <div className="font-bold">No Music</div>
+          <div className="text-gray-400">Silent background</div>
+        </div>
+      </button>
+
+      {/* Preset options */}
+      <div className="grid grid-cols-2 gap-2">
+        {MUSIC_PRESETS.map(p => (
+          <button key={p.key} onClick={() => onChange(p.url)}
+            className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-0.5 ${value === p.url ? 'border-red-400 bg-red-50 ring-2 ring-red-200' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+            <div className="flex items-center justify-between">
+              <span className={`text-xs font-bold ${value === p.url ? 'text-red-700' : 'text-gray-700'}`}>{p.label}</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); testPlay(p.url, p.key); }}
+                className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 px-1.5 py-0.5 rounded bg-white"
+              >
+                {testing === p.key ? '⏹' : '▶'}
+              </button>
+            </div>
+            <span className="text-[10px] text-gray-400">{p.desc}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Upload own music */}
+      <input ref={fileRef} type="file" accept="audio/mp3,audio/mpeg,audio/wav,audio/*" className="hidden"
+        onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+      <button onClick={() => fileRef.current?.click()} disabled={uploading}
+        className={`w-full p-2.5 rounded-xl border text-left text-xs transition-all flex items-center gap-2 ${uploadedName && value.includes('bgm') ? 'border-green-400 bg-green-50' : 'border-dashed border-gray-300 bg-white hover:border-gray-400'}`}>
+        <span>{uploading ? '⏳' : uploadedName ? '✅' : '📁'}</span>
+        <div>
+          <div className={`font-bold ${uploadedName && value.includes('bgm') ? 'text-green-700' : 'text-gray-600'}`}>
+            {uploading ? 'Uploading…' : uploadedName || 'Upload Your Own MP3'}
+          </div>
+          <div className="text-gray-400">Any MP3 or WAV file</div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
 // ─── Background Mode Selector ─────────────────────────────────────────────────
 const BG_MODES: { id: BgMode; icon: string; label: string; desc: string }[] = [
   { id: 'auto-image',   icon: '🖼️', label: 'Auto Images',    desc: 'AI fetches relevant Pexels photos' },
@@ -332,7 +449,7 @@ function BgModeSelector({
 
 // ─── Script preview card ──────────────────────────────────────────────────────
 function ScriptPreview({
-  script, onEdit, onRun, running, bgMode, onBgModeChange, customVideoUrl, onCustomVideoChange,
+  script, onEdit, onRun, running, bgMode, onBgModeChange, customVideoUrl, onCustomVideoChange, musicUrl, onMusicChange,
 }: {
   script: Script;
   onEdit: () => void;
@@ -342,6 +459,8 @@ function ScriptPreview({
   onBgModeChange: (m: BgMode) => void;
   customVideoUrl: string;
   onCustomVideoChange: (url: string) => void;
+  musicUrl: MusicOpt;
+  onMusicChange: (v: MusicOpt) => void;
 }) {
   const [uploadToYT, setUploadToYT] = useState(false);
 
@@ -401,13 +520,14 @@ function ScriptPreview({
       )}
 
       {/* ── Background mode selector ── */}
-      <div className="px-5 pb-4 border-t border-gray-100 pt-4">
+      <div className="px-5 pb-4 border-t border-gray-100 pt-4 flex flex-col gap-4">
         <BgModeSelector
           value={bgMode}
           onChange={onBgModeChange}
           customVideoUrl={customVideoUrl}
           onCustomVideoChange={onCustomVideoChange}
         />
+        <MusicPicker value={musicUrl} onChange={onMusicChange} />
       </div>
 
       {/* Publish controls */}
@@ -539,6 +659,7 @@ export function VideoStudio() {
   const [pipelineOk,       setPipelineOk]       = useState<boolean | null>(null);
   const [bgMode,           setBgMode]           = useState<BgMode>('auto-image');
   const [customVideoUrl,   setCustomVideoUrl]   = useState('');
+  const [musicUrl,         setMusicUrl]         = useState<MusicOpt>(MUSIC_PRESETS[0].url);
 
   const job  = useJobPoller(jobId);
   const slug = String(script?.slug || '');
@@ -580,6 +701,7 @@ export function VideoStudio() {
           ...script,
           _bgMode: bgMode,
           _customVideoUrl: customVideoUrl,
+          _musicUrl: musicUrl === 'none' ? '' : musicUrl,
           _noUpload: !uploadToYT,
         }),
       });
@@ -648,6 +770,8 @@ export function VideoStudio() {
           onBgModeChange={setBgMode}
           customVideoUrl={customVideoUrl}
           onCustomVideoChange={setCustomVideoUrl}
+          musicUrl={musicUrl}
+          onMusicChange={setMusicUrl}
         />
       )}
 
