@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import type { Video, Category } from '@/types';
+import { VideoStudio } from './VideoStudio';
 
 const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'ai-tech',    label: '🤖 AI & Tech' },
@@ -294,7 +295,7 @@ export function AdminPanel() {
   const [checked, setChecked] = useState(false);
   const [videos,  setVideos]  = useState<Video[]>([]);
   const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [tab, setTab]         = useState<'studio' | 'published'>('studio');
 
   // Check if already logged in via cookie
   useEffect(() => {
@@ -317,13 +318,11 @@ export function AdminPanel() {
 
   const handleDelete = async (v: Video) => {
     if (!confirm(`Delete "${v.title}"?`)) return;
-    setDeleting(v.id);
     await fetch('/api/admin/videos', {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: v.id, publishedAt: v.publishedAt }),
     });
     setVideos(prev => prev.filter(x => x.id !== v.id));
-    setDeleting(null);
   };
 
   if (!checked) return null;
@@ -349,7 +348,7 @@ export function AdminPanel() {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8 flex flex-col gap-8">
+      <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-6">
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -364,32 +363,45 @@ export function AdminPanel() {
           ))}
         </div>
 
-        {/* Add form */}
-        <AddVideoForm onAdded={loadVideos} />
-
-        {/* Video list */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-black text-white">
-              📋 Published Videos
-              <span className="text-gray-500 font-normal text-sm ml-2">({videos.length})</span>
-            </h2>
-            <button
-              onClick={loadVideos}
-              disabled={loading}
-              className="text-gray-400 hover:text-white text-xs border border-tw-border px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Loading…' : '↻ Refresh'}
+        {/* Tabs */}
+        <div className="flex gap-1 bg-[#111] border border-[#222] rounded-xl p-1 w-fit">
+          {([['studio','🎬 Video Studio'],['published','📋 Published Videos']] as const).map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === id ? 'bg-tw-red text-white' : 'text-gray-400 hover:text-white'}`}>
+              {label}
             </button>
-          </div>
-          {loading ? (
-            <div className="flex flex-col gap-3">
-              {[1,2,3].map(i => <div key={i} className="bg-tw-card border border-tw-border rounded-2xl h-20 skeleton" />)}
-            </div>
-          ) : (
-            <VideoList videos={videos} onDelete={handleDelete} />
-          )}
+          ))}
         </div>
+
+        {/* Tab content */}
+        {tab === 'studio' && <VideoStudio />}
+
+        {tab === 'published' && (
+          <>
+            {/* Quick add form */}
+            <AddVideoForm onAdded={loadVideos} />
+
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-black text-white">
+                  📋 Published Videos
+                  <span className="text-gray-500 font-normal text-sm ml-2">({videos.length})</span>
+                </h2>
+                <button onClick={loadVideos} disabled={loading}
+                  className="text-gray-400 hover:text-white text-xs border border-tw-border px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                  {loading ? 'Loading…' : '↻ Refresh'}
+                </button>
+              </div>
+              {loading ? (
+                <div className="flex flex-col gap-3">
+                  {[1,2,3].map(i => <div key={i} className="bg-tw-card border border-tw-border rounded-2xl h-20 skeleton" />)}
+                </div>
+              ) : (
+                <VideoList videos={videos} onDelete={handleDelete} />
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

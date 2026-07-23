@@ -16,6 +16,7 @@ const nextConfig = {
     APP_REGION:                  process.env.APP_REGION                  || 'ap-south-1',
     TW_AWS_KEY_ID:               process.env.TW_AWS_KEY_ID               || '',
     TW_AWS_SECRET:               process.env.TW_AWS_SECRET               || '',
+    NEXT_PUBLIC_PIPELINE_URL:    process.env.NEXT_PUBLIC_PIPELINE_URL    || 'http://localhost:3333',
   },
 };
 
