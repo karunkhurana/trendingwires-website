@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import { baseMetadata, homeJsonLd } from '@/lib/seo';
-import { Navbar } from '@/components/sections/Navbar';
-import { Footer } from '@/components/sections/Footer';
 
 export const metadata: Metadata = baseMetadata;
 
@@ -44,9 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Script>
           </>
         )}
-        <Navbar />
-        <main>{children}</main>
-        <Footer />
+        {children}
       </body>
     </html>
   );
