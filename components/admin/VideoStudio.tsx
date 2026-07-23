@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 const PIPELINE_URL = process.env.NEXT_PUBLIC_PIPELINE_URL || 'http://localhost:3333';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type BgMode = 'auto-image' | 'no-image' | 'custom-video';
+type BgMode = 'auto-image' | 'no-image' | 'custom-video' | 'story';
 type JobResult = { youtubeUrl?: string; videoPath?: string; thumbPath?: string };
 type LogLine   = { msg: string };
 type Job       = { id: string; status: string; log: LogLine[]; result: JobResult | null; error: string | null };
@@ -224,6 +224,7 @@ function PexelsVideoBrowser({ onSelect }: { onSelect: (path: string, thumb: stri
 const BG_MODES: { id: BgMode; icon: string; label: string; desc: string }[] = [
   { id: 'auto-image',   icon: '🖼️', label: 'Auto Images',    desc: 'AI fetches relevant Pexels photos' },
   { id: 'no-image',     icon: '⬛', label: 'Text Only',       desc: 'Black bg, star animation, no image — original style' },
+  { id: 'story',        icon: '🎭', label: 'Story Style',     desc: 'Cream bg, animated character, counter — viral facts style' },
   { id: 'custom-video', icon: '🎬', label: 'Pick Video',      desc: 'Browse free Pexels videos or upload your own' },
 ];
 
@@ -264,7 +265,7 @@ function BgModeSelector({
   return (
     <div className="flex flex-col gap-3">
       <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Background Style</label>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {BG_MODES.map(m => (
           <button key={m.id} onClick={() => { onChange(m.id); if (m.id === 'custom-video') setShowBrowser(true); }}
             className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1 ${value === m.id ? 'border-red-400 bg-red-50 ring-2 ring-red-200' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
