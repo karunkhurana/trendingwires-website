@@ -11,33 +11,9 @@ type LogLine   = { msg: string };
 type Job       = { id: string; status: string; log: LogLine[]; result: JobResult | null; error: string | null };
 type Script    = Record<string, unknown>;
 
-// Preset music options — public CDN tracks (no login needed)
-const MUSIC_PRESETS: { key: string; label: string; desc: string; url: string }[] = [
-  {
-    key:   'upbeat-news',
-    label: '📰 Upbeat News',
-    desc:  'Fast-paced, professional news beat',
-    url:   'https://cdn.pixabay.com/audio/2023/10/30/audio_5ba1e09cdf.mp3',
-  },
-  {
-    key:   'corporate-inspire',
-    label: '💼 Corporate',
-    desc:  'Clean motivational corporate beat',
-    url:   'https://cdn.pixabay.com/audio/2024/02/28/audio_a31e2c0c34.mp3',
-  },
-  {
-    key:   'cinematic-tension',
-    label: '🎬 Cinematic',
-    desc:  'Dramatic cinematic tension',
-    url:   'https://cdn.pixabay.com/audio/2023/05/17/audio_7a77b7e1aa.mp3',
-  },
-  {
-    key:   'lofi-chill',
-    label: '🎵 Lo-Fi Chill',
-    desc:  'Relaxed lo-fi background',
-    url:   'https://cdn.pixabay.com/audio/2024/01/15/audio_ca1a5f71f8.mp3',
-  },
-];
+// Preset music options — user must upload their own OR use no music
+// External CDN URLs often block during Remotion server-side render
+const MUSIC_PRESETS: { key: string; label: string; desc: string; url: string }[] = [];
 
 // ─── Job poller ───────────────────────────────────────────────────────────────
 function useJobPoller(jobId: string | null) {
@@ -301,23 +277,27 @@ function MusicPicker({
         </div>
       </button>
 
-      {/* Preset options */}
-      <div className="grid grid-cols-2 gap-2">
-        {MUSIC_PRESETS.map(p => (
-          <button key={p.key} onClick={() => onChange(p.url)}
-            className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-0.5 ${value === p.url ? 'border-red-400 bg-red-50 ring-2 ring-red-200' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
-            <div className="flex items-center justify-between">
+      {/* Preset options — hidden since empty, but keep for future */}
+      {MUSIC_PRESETS.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {MUSIC_PRESETS.map(p => (
+            <button key={p.key} onClick={() => onChange(p.url)}
+              className={`p-2.5 rounded-xl border text-left transition-all flex flex-col gap-0.5 ${value === p.url ? 'border-red-400 bg-red-50 ring-2 ring-red-200' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
               <span className={`text-xs font-bold ${value === p.url ? 'text-red-700' : 'text-gray-700'}`}>{p.label}</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); testPlay(p.url, p.key); }}
-                className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 px-1.5 py-0.5 rounded bg-white"
-              >
-                {testing === p.key ? '⏹' : '▶'}
-              </button>
-            </div>
-            <span className="text-[10px] text-gray-400">{p.desc}</span>
-          </button>
-        ))}
+              <span className="text-[10px] text-gray-400">{p.desc}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Tip box */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-700">
+        <p className="font-bold mb-1">💡 Best sources for free music:</p>
+        <ul className="space-y-0.5 text-amber-600">
+          <li>• <a href="https://pixabay.com/music" target="_blank" rel="noopener noreferrer" className="underline">pixabay.com/music</a> — download MP3, then upload below</li>
+          <li>• <a href="https://freemusicarchive.org" target="_blank" rel="noopener noreferrer" className="underline">freemusicarchive.org</a> — CC licensed tracks</li>
+          <li>• YouTube Audio Library (in YouTube Studio)</li>
+        </ul>
       </div>
 
       {/* Upload own music */}
@@ -774,7 +754,7 @@ export function VideoStudio() {
   const [pipelineOk,       setPipelineOk]       = useState<boolean | null>(null);
   const [bgMode,           setBgMode]           = useState<BgMode>('auto-image');
   const [customVideoUrl,   setCustomVideoUrl]   = useState('');
-  const [musicUrl,         setMusicUrl]         = useState<MusicOpt>(MUSIC_PRESETS[0].url);
+  const [musicUrl,         setMusicUrl]         = useState<MusicOpt>('none');
 
   const job  = useJobPoller(jobId);
   const slug = String(script?.slug || '');
