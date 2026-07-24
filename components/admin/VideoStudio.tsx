@@ -1114,6 +1114,115 @@ function ReviewPanel({ slug, job, pipelineUrl, youtubeUrl, isUploading, uploadin
   );
 }
 
+// ─── YouTube Inspire Panel ────────────────────────────────────────────────────
+function YoutubeInspirePanel({
+  onScript, onError, pipelineOk,
+}: {
+  onScript: (s: Script) => void;
+  onError: (e: string) => void;
+  pipelineOk: boolean | null;
+}) {
+  const [url,       setUrl]       = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [videoInfo, setVideoInfo] = useState<{ title: string; channel: string; thumbnail: string } | null>(null);
+  const [instructions, setInstructions] = useState('');
+
+  const extractVideoId = (u: string) => {
+    const m = u.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  };
+
+  const fetchInfo = async () => {
+    const vid = extractVideoId(url);
+    if (!vid) { onError('Invalid YouTube URL — paste a full youtube.com/watch?v=... link'); return; }
+    setLoading(true); setVideoInfo(null); onError('');
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/youtube-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      setVideoInfo(d);
+    } catch (e: unknown) { onError(e instanceof Error ? e.message : 'Failed to fetch video info'); }
+    setLoading(false);
+  };
+
+  const inspire = async () => {
+    if (!videoInfo) return;
+    setLoading(true); onError('');
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: videoInfo.title,
+          instructions: `Inspired by this YouTube video: "${videoInfo.title}" by ${videoInfo.channel}. Create our own original TrendingWires version — same topic but completely rewritten with our brand style, voice, and content. No copying. ${instructions}`,
+        }),
+      });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
+      const d = await r.json();
+      onScript(d.script);
+    } catch (e: unknown) { onError(e instanceof Error ? e.message : 'Failed'); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Info note */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 text-xs text-blue-700">
+        <p className="font-bold mb-0.5">How it works</p>
+        <p className="text-blue-600">Paste any YouTube video URL → AI reads the title/topic → creates a 100% original TrendingWires version. No footage or audio is reused.</p>
+      </div>
+
+      {/* URL input */}
+      <div className="flex gap-2">
+        <input value={url} onChange={e => setUrl(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && fetchInfo()}
+          placeholder="https://youtube.com/watch?v=..."
+          className="flex-1 border border-gray-200 text-gray-800 bg-gray-50 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all placeholder:text-gray-300" />
+        <button onClick={fetchInfo} disabled={!url.trim() || loading || pipelineOk !== true}
+          className="bg-gray-900 hover:bg-gray-800 disabled:opacity-40 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors">
+          {loading && !videoInfo ? '⏳' : '→'}
+        </button>
+      </div>
+
+      {/* Video preview */}
+      {videoInfo && (
+        <div className="bg-white border border-gray-200 rounded-xl p-3 flex gap-3 items-start">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={videoInfo.thumbnail} alt="" className="w-24 h-14 object-cover rounded-lg flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-800 line-clamp-2">{videoInfo.title}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{videoInfo.channel}</p>
+            <p className="text-[10px] text-green-600 mt-1 font-medium">✓ Video found — ready to inspire</p>
+          </div>
+        </div>
+      )}
+
+      {/* Optional instructions */}
+      {videoInfo && (
+        <div>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">
+            Additional instructions <span className="text-gray-300 font-normal normal-case">optional</span>
+          </label>
+          <textarea value={instructions} onChange={e => setInstructions(e.target.value)} rows={2}
+            placeholder="e.g. Focus on the India angle. Add Hinglish voice. Use blue accent."
+            className="w-full border border-gray-200 text-gray-800 bg-gray-50 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all placeholder:text-gray-300 resize-none" />
+        </div>
+      )}
+
+      {videoInfo && (
+        <button onClick={inspire} disabled={loading || pipelineOk !== true}
+          className="bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+          {loading ? <><span className="animate-spin text-base">✨</span> Creating TrendingWires version…</> : <><span>🔄</span> Create Our Version</>}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Studio ──────────────────────────────────────────────────────────────
 export function VideoStudio() {
   const [topic,            setTopic]            = useState('');
@@ -1127,6 +1236,7 @@ export function VideoStudio() {
   const [bgMode,           setBgMode]           = useState<BgMode>('auto-image');
   const [customVideoUrl,   setCustomVideoUrl]   = useState('');
   const [musicUrl,         setMusicUrl]         = useState<MusicOpt>('none');
+  const [inputMode,        setInputMode]        = useState<'topic' | 'youtube'>('topic');
 
   const job  = useJobPoller(jobId);
   const slug = String(script?.slug || '');
@@ -1193,36 +1303,59 @@ export function VideoStudio() {
       <Card>
         <div className="px-5 pt-5 pb-2">
           <h2 className="font-black text-gray-900 text-base mb-0.5">What&apos;s your video about?</h2>
-          <p className="text-gray-400 text-xs">Enter a topic and optional instructions. AI fills everything else.</p>
+          <p className="text-gray-400 text-xs">Enter a topic or paste a YouTube URL to create your own version.</p>
         </div>
         <div className="px-5 pb-5 flex flex-col gap-3">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Topic *</label>
-            <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && research()}
-              placeholder="e.g. Claude 4 beats GPT-4o on every benchmark"
-              className="w-full border border-gray-200 text-gray-800 bg-gray-50 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all placeholder:text-gray-300" />
+
+          {/* Mode tabs */}
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+            <button onClick={() => setInputMode('topic')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${inputMode === 'topic' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              ✍️ Topic
+            </button>
+            <button onClick={() => setInputMode('youtube')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${inputMode === 'youtube' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              📺 Inspire from YouTube
+            </button>
           </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">
-              Instructions <span className="text-gray-300 font-normal normal-case tracking-normal">optional</span>
-            </label>
-            <textarea value={instructions} onChange={e => setInstructions(e.target.value)} rows={2}
-              placeholder="e.g. Make it punchy. Use blue accent. Include the 99.7% accuracy stat."
-              className="w-full border border-gray-200 text-gray-800 bg-gray-50 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all placeholder:text-gray-300 resize-none" />
-          </div>
-          {researchErr && <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-red-600 text-xs">{researchErr}</div>}
-          <button onClick={research} disabled={!topic.trim() || researching || pipelineOk !== true}
-            className="bg-gray-900 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
-            {researching ? <><span className="animate-spin text-base">✨</span> AI is filling the script…</> : <><span>✨</span> Generate Script with AI</>}
-          </button>
-          <div>
-            <p className="text-xs text-gray-400 mb-2">Try these:</p>
-            <div className="flex flex-wrap gap-2">
-              {['OpenAI just released o3 — what developers need to know','India becomes 3rd largest economy','This AI replaces 50% of coding jobs','NASA confirmed water on Mars'].map(ex => (
-                <button key={ex} onClick={() => setTopic(ex)} className="text-xs border border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-300 px-3 py-1.5 rounded-full bg-white transition-colors">{ex}</button>
-              ))}
-            </div>
-          </div>
+
+          {inputMode === 'topic' ? (
+            <>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Topic *</label>
+                <input value={topic} onChange={e => setTopic(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && research()}
+                  placeholder="e.g. Claude 4 beats GPT-4o on every benchmark"
+                  className="w-full border border-gray-200 text-gray-800 bg-gray-50 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all placeholder:text-gray-300" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">
+                  Instructions <span className="text-gray-300 font-normal normal-case tracking-normal">optional</span>
+                </label>
+                <textarea value={instructions} onChange={e => setInstructions(e.target.value)} rows={2}
+                  placeholder="e.g. Make it punchy. Use blue accent. Include the 99.7% accuracy stat."
+                  className="w-full border border-gray-200 text-gray-800 bg-gray-50 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 transition-all placeholder:text-gray-300 resize-none" />
+              </div>
+              {researchErr && <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-red-600 text-xs">{researchErr}</div>}
+              <button onClick={research} disabled={!topic.trim() || researching || pipelineOk !== true}
+                className="bg-gray-900 hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                {researching ? <><span className="animate-spin text-base">✨</span> AI is filling the script…</> : <><span>✨</span> Generate Script with AI</>}
+              </button>
+              <div>
+                <p className="text-xs text-gray-400 mb-2">Try these:</p>
+                <div className="flex flex-wrap gap-2">
+                  {['OpenAI just released o3 — what developers need to know','India becomes 3rd largest economy','This AI replaces 50% of coding jobs','NASA confirmed water on Mars'].map(ex => (
+                    <button key={ex} onClick={() => setTopic(ex)} className="text-xs border border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-300 px-3 py-1.5 rounded-full bg-white transition-colors">{ex}</button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <YoutubeInspirePanel
+              onScript={(s) => { setScript(s); setResearchErr(''); }}
+              onError={setResearchErr}
+              pipelineOk={pipelineOk}
+            />
+          )}
         </div>
       </Card>
 
