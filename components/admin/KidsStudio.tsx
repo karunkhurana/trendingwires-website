@@ -106,7 +106,7 @@ function SceneCard({
   onChange: (s: StoryScene) => void;
   onDelete: () => void;
 }) {
-  const bg = BG_PRESETS[scene.bg];
+  const bg = BG_PRESETS[scene.bg] || BG_PRESETS['sky'];
 
   return (
     <div className="border border-gray-200 rounded-2xl overflow-hidden">
@@ -217,7 +217,7 @@ function StoryPreview({ story, onEdit }: { story: Story; onEdit: () => void }) {
         {story.scenes.map((s, i) => (
           <div key={i} className="flex items-start gap-3 text-xs">
             <span className="font-bold text-gray-400 flex-shrink-0 w-16">Scene {i+1}</span>
-            <span className="text-purple-600 flex-shrink-0">{BG_PRESETS[s.bg].emoji}</span>
+            <span className="text-purple-600 flex-shrink-0">{(BG_PRESETS[s.bg] || BG_PRESETS['sky']).emoji}</span>
             <span className="text-gray-600 flex-shrink-0">
               {s.char1 !== 'none' ? (s.char1 === 'raju' ? '👦' : '👧') : ''}
               {s.char2 !== 'none' ? (s.char2 === 'raju' ? '👦' : '👧') : ''}
