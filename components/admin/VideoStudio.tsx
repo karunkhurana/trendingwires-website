@@ -630,7 +630,11 @@ function ScriptPreview({
     form.append('sceneIdx', String(sceneIdx));
     form.append('slug', String(script.slug));
     try {
-      const r = await fetch(`${PIPELINE_URL}/pipeline/upload-scene-image`, { method: 'POST', body: form });
+      // Pass slug+sceneIdx as query params — multer body parse timing fix
+      const r = await fetch(
+        `${PIPELINE_URL}/pipeline/upload-scene-image?slug=${encodeURIComponent(String(script.slug))}&sceneIdx=${sceneIdx}`,
+        { method: 'POST', body: form }
+      );
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
       // Always read from current script prop — avoids stale closure
@@ -903,7 +907,10 @@ function ThumbnailEditor({ slug, pipelineUrl }: { slug: string; pipelineUrl: str
       const form = new FormData();
       form.append('thumbnail', file);
       form.append('slug', slug);
-      const r = await fetch(`${pipelineUrl}/pipeline/upload-thumbnail`, { method: 'POST', body: form });
+      // Also pass slug as query param as fallback (multer body parse timing issue)
+      const r = await fetch(`${pipelineUrl}/pipeline/upload-thumbnail?slug=${encodeURIComponent(slug)}`, {
+        method: 'POST', body: form,
+      });
       if (!r.ok) throw new Error(await r.text());
       refresh();
     } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Upload failed'); }
