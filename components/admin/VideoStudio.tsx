@@ -1236,8 +1236,20 @@ export function VideoStudio() {
         />
       )}
 
-      {/* ── Job progress ── */}
-      {jobId && job && <JobProgress job={job} slug={slug} />}
+      {/* ── Job progress — show immediately when jobId is set ── */}
+      {jobId && (
+        job
+          ? <JobProgress job={job} slug={slug} />
+          : <Card>
+              <div className="flex items-center gap-3 px-5 py-4">
+                <span className="animate-spin text-xl">⚙️</span>
+                <div>
+                  <p className="font-bold text-gray-800 text-sm">Starting pipeline…</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Connecting to pipeline server</p>
+                </div>
+              </div>
+            </Card>
+      )}
     </div>
   );
 }
