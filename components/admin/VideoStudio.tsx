@@ -928,8 +928,8 @@ function ThumbnailEditor({ slug, pipelineUrl }: { slug: string; pipelineUrl: str
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* Thumbnail image */}
-      <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-sm w-full group" style={{ aspectRatio: '16/9' }}>
+      {/* Thumbnail image — 9:16 for Shorts */}
+      <div className="relative rounded-xl overflow-hidden border border-gray-200 shadow-sm w-full group mx-auto" style={{ maxWidth: 280, aspectRatio: '9/16' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img key={thumbUrl} src={thumbUrl} alt="thumbnail"
           className="w-full h-full object-cover"
@@ -953,7 +953,7 @@ function ThumbnailEditor({ slug, pipelineUrl }: { slug: string; pipelineUrl: str
         )}
       </div>
 
-      <p className="text-[10px] text-gray-400 text-center">YouTube thumbnail · hover to change</p>
+      <p className="text-[10px] text-gray-400 text-center">YouTube Shorts thumbnail (9:16) · hover to replace</p>
 
       {/* Hidden file input */}
       <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/jpg" className="hidden"
@@ -1032,21 +1032,19 @@ function ReviewPanel({ slug, job, pipelineUrl, youtubeUrl, isUploading, uploadin
 
   return (
     <div className="px-5 pb-5 flex flex-col gap-4">
-      {/* Video + thumbnail side by side */}
-      <div className="flex gap-3 items-start">
-        {/* Video preview */}
-        <div className="relative rounded-xl overflow-hidden bg-black border border-gray-200 shadow-lg flex-shrink-0" style={{ width: 110, aspectRatio: '9/16' }}>
-          <video src={`${pipelineUrl}/pipeline/preview/${slug}`} controls className="w-full h-full object-cover" preload="metadata" />
-        </div>
-        {/* Thumbnail */}
-        <div className="flex-1 flex flex-col gap-1.5 min-w-0">
-          <ThumbnailEditor slug={slug} pipelineUrl={pipelineUrl} />
-          <a href={`${pipelineUrl}/pipeline/preview/${slug}`} download={`${slug}.mp4`}
-            className="w-full border border-gray-200 text-gray-600 text-xs font-bold py-2 px-3 rounded-xl text-center transition-colors bg-white hover:bg-gray-50">
-            ⬇ Download MP4
-          </a>
-        </div>
+      {/* Video preview — full width 9:16 */}
+      <div className="relative rounded-xl overflow-hidden bg-black border border-gray-200 shadow-lg mx-auto" style={{ width: '100%', maxWidth: 280, aspectRatio: '9/16' }}>
+        <video src={`${pipelineUrl}/pipeline/preview/${slug}`} controls className="w-full h-full object-cover" preload="metadata" />
       </div>
+
+      {/* Thumbnail — 9:16 for Shorts (same ratio as video) */}
+      <ThumbnailEditor slug={slug} pipelineUrl={pipelineUrl} />
+
+      {/* Download */}
+      <a href={`${pipelineUrl}/pipeline/preview/${slug}`} download={`${slug}.mp4`}
+        className="w-full border border-gray-200 text-gray-600 text-sm font-bold py-2.5 px-3 rounded-xl text-center transition-colors bg-white hover:bg-gray-50">
+        ⬇ Download MP4
+      </a>
 
       {/* Editable metadata */}
       <div className="flex flex-col gap-3 bg-gray-50 border border-gray-100 rounded-xl p-4">
@@ -1221,13 +1219,13 @@ export function VideoStudio() {
         </div>
       </Card>
 
-      {/* ── Script preview ── */}
-      {script && !isRunning && !jobId && (
+      {/* ── Script preview — stays visible during and after render ── */}
+      {script && (
         <ScriptPreview
           script={script}
           onEdit={() => { setScript(null); setJobId(null); }}
           onRun={run}
-          running={running}
+          running={running || isRunning}
           bgMode={bgMode}
           onBgModeChange={setBgMode}
           customVideoUrl={customVideoUrl}
