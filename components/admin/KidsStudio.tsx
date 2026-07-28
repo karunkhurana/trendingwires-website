@@ -70,13 +70,13 @@ function useJobPoller(jobId: string | null) {
 
 // ─── BG presets ────────────────────────────────────────────────────────────────
 const BG_PRESETS: Record<BgPreset, { gradient: string; label: string; emoji: string }> = {
-  sky:      { gradient: 'linear-gradient(160deg, #87CEEB 0%, #98FB98 100%)', label: '🏡 Street', emoji: '🏘️' },
-  sunset:   { gradient: 'linear-gradient(160deg, #FF8C00 0%, #FF6B6B 100%)', label: '🌆 Street (Evening)', emoji: '🌇' },
-  night:    { gradient: 'linear-gradient(160deg, #1a1a2e 0%, #16213E 100%)', label: '🏠 Home',   emoji: '🏠' },
-  garden:   { gradient: 'linear-gradient(160deg, #4CAF50 0%, #8BC34A 100%)', label: '🌳 Garden', emoji: '🌳' },
-  indoors:  { gradient: 'linear-gradient(160deg, #FFD3A5 0%, #FFA07A 100%)', label: '🛋️ Indoors', emoji: '🛋️' },
-  party:    { gradient: 'linear-gradient(160deg, #9C27B0 0%, #E91E63 100%)', label: '🎉 Party',  emoji: '🎉' },
-  beach:    { gradient: 'linear-gradient(160deg, #00CED1 0%, #FFD700 100%)', label: '🌸 Garden 2', emoji: '🌸' },
+  sky:      { gradient: 'linear-gradient(160deg, #87CEEB 0%, #98FB98 100%)', label: '🏡 Street',      emoji: '🏘️' },
+  sunset:   { gradient: 'linear-gradient(160deg, #FF8C00 0%, #FF6B6B 100%)', label: '🏛️ CP Delhi',    emoji: '🏛️' },
+  night:    { gradient: 'linear-gradient(160deg, #1a1a2e 0%, #16213E 100%)', label: '🏠 Home',         emoji: '🏠' },
+  garden:   { gradient: 'linear-gradient(160deg, #4CAF50 0%, #8BC34A 100%)', label: '🌳 Garden',       emoji: '🌳' },
+  indoors:  { gradient: 'linear-gradient(160deg, #FFD3A5 0%, #FFA07A 100%)', label: '🛋️ Indoors',     emoji: '🛋️' },
+  party:    { gradient: 'linear-gradient(160deg, #9C27B0 0%, #E91E63 100%)', label: '🎉 Party',        emoji: '🎉' },
+  beach:    { gradient: 'linear-gradient(160deg, #00CED1 0%, #FFD700 100%)', label: '🌸 Garden 2',     emoji: '🌸' },
 };
 
 const VOICES = [
