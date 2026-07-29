@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Video, Category } from '@/types';
 import { VideoStudio } from './VideoStudio';
 import { KidsStudio } from './KidsStudio';
+import { QuizStudio } from './QuizStudio';
 
 const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'ai-tech',    label: '🤖 AI & Tech' },
@@ -297,7 +298,7 @@ export function AdminPanel() {
   const [checked, setChecked] = useState(false);
   const [videos,  setVideos]  = useState<Video[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab]         = useState<'studio' | 'kids' | 'published'>('studio');
+  const [tab, setTab]         = useState<'studio' | 'kids' | 'quiz' | 'published'>('studio');
 
   // Check if already logged in via cookie
   useEffect(() => {
@@ -369,7 +370,7 @@ export function AdminPanel() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 border border-gray-200 rounded-xl p-1 w-fit">
-          {([['studio','🎬 Video Studio'],['kids','🧒 Kids Story'],['published','📋 Published']] as const).map(([id, label]) => (
+          {([['studio','🎬 Video Studio'],['kids','🧒 Kids Story'],['quiz','🧠 Quiz'],['published','📋 Published']] as const).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
               className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === id ? 'bg-red-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>
               {label}
@@ -380,6 +381,7 @@ export function AdminPanel() {
         {/* Tab content */}
         {tab === 'studio' && <VideoStudio />}
         {tab === 'kids'   && <KidsStudio />}
+        {tab === 'quiz'   && <QuizStudio />}
 
         {tab === 'published' && (
           <>
