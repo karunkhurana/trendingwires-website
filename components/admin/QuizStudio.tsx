@@ -209,6 +209,9 @@ export function QuizStudio() {
   const [ytUploading,  setYtUploading]  = useState(false);
   const [ytUrl,        setYtUrl]        = useState('');
   const [ytErr,        setYtErr]        = useState('');
+  const [thumbFile,    setThumbFile]    = useState<File | null>(null);
+  const [thumbPreview, setThumbPreview] = useState('');
+  const [thumbPath,    setThumbPath]    = useState('');  // uploaded server path
   const [pipelineOk,   setPipelineOk]   = useState<boolean | null>(null);
 
   const job = useJobPoller(jobId);
@@ -277,13 +280,22 @@ export function QuizStudio() {
     if (!quiz || !isDone) return;
     setYtUploading(true); setYtErr(''); setYtUrl('');
     try {
+      // Upload user thumbnail first if provided
+      let uploadedThumbPath = thumbPath;
+      if (thumbFile && !uploadedThumbPath) {
+        const fd = new FormData();
+        fd.append('thumbnail', thumbFile);   // field name matches server
+        fd.append('slug', `quiz-${quiz.slug}`);
+        const tr = await fetch(`${PIPELINE_URL}/pipeline/upload-thumbnail`, { method: 'POST', body: fd });
+        if (tr.ok) { const td = await tr.json(); uploadedThumbPath = td.path || ''; setThumbPath(td.path || ''); }
+      }
       const r = await fetch(`${PIPELINE_URL}/pipeline/quiz/upload-youtube`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          slug: quiz.slug,
-          title: `${quiz.title} | Quiz #shorts`,
-          description: `Can you answer all ${editQs.length} questions about ${quiz.topic}? Drop your score! 👇\n\n#quiz #gk #trivia #shorts`,
-          tags: [quiz.topic, 'quiz', 'trivia', 'gk', 'shorts'],
+          slug:          quiz.slug,
+          topic,
+          numQuestions:  editQs.length,
+          thumbnailPath: uploadedThumbPath || '',
         }),
       });
       const d = await r.json();
@@ -524,10 +536,11 @@ export function QuizStudio() {
               {/* YouTube upload — shown after render done */}
               {isDone && (
                 <Card>
-                  <div className="px-5 py-4 flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
+                  <div className="px-5 pt-4 pb-5 flex flex-col gap-4">
+                    <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
                       <span className="text-base">📤</span>
-                      <span className="font-black text-gray-800 text-sm">Upload to YouTube</span>
+                      <span className="font-black text-gray-800 text-sm">Publish to YouTube</span>
+                      <span className="text-[10px] bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full ml-auto">Auto SEO + Thumbnail</span>
                     </div>
 
                     {ytUrl ? (
@@ -539,21 +552,66 @@ export function QuizStudio() {
                             className="text-xs text-blue-600 hover:underline truncate block">{ytUrl}</a>
                         </div>
                         <a href={ytUrl} target="_blank" rel="noopener noreferrer"
-                          className="text-xs border border-green-300 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 flex-shrink-0">
+                          className="text-xs border border-green-300 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 flex-shrink-0 font-bold">
                           Watch ↗
                         </a>
                       </div>
                     ) : (
                       <>
+                        {/* Thumbnail upload */}
+                        <div>
+                          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+                            🖼️ Custom Thumbnail <span className="normal-case font-normal text-gray-400">(optional — auto-generated from video if skipped)</span>
+                          </label>
+                          {thumbPreview ? (
+                            <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-3">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={thumbPreview} alt="thumb" className="w-24 h-14 object-cover rounded-lg flex-shrink-0 border border-gray-200" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-gray-700">{thumbFile?.name}</p>
+                                <p className="text-[10px] text-gray-400">{thumbFile ? `${Math.round(thumbFile.size / 1024)}KB` : ''}</p>
+                              </div>
+                              <button onClick={() => { setThumbFile(null); setThumbPreview(''); setThumbPath(''); }}
+                                className="text-red-400 text-xs border border-red-200 px-2 py-1 rounded-lg">✕</button>
+                            </div>
+                          ) : (
+                            <label className="flex items-center gap-3 border-2 border-dashed border-gray-200 rounded-xl p-4 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+                              <span className="text-2xl">🖼️</span>
+                              <div>
+                                <p className="text-sm font-bold text-gray-600">Upload thumbnail</p>
+                                <p className="text-[10px] text-gray-400">JPG/PNG, 1280×720 recommended</p>
+                              </div>
+                              <input type="file" accept="image/*" className="hidden"
+                                onChange={e => {
+                                  const f = e.target.files?.[0];
+                                  if (!f) return;
+                                  setThumbFile(f);
+                                  setThumbPreview(URL.createObjectURL(f));
+                                }} />
+                            </label>
+                          )}
+                        </div>
+
+                        {/* SEO info */}
+                        <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
+                          <p className="font-bold mb-1">✨ What happens when you upload:</p>
+                          <ul className="flex flex-col gap-0.5 text-indigo-600">
+                            <li>• GPT-4o-mini writes a viral title, 400-word SEO description + 20 tags</li>
+                            <li>• Auto-extracts a branded frame from the video as thumbnail (if no custom one)</li>
+                            <li>• Uploads as Public #Shorts with full metadata</li>
+                          </ul>
+                        </div>
+
                         {ytErr && <p className="text-xs text-red-500 bg-red-50 border border-red-200 px-3 py-2 rounded-xl">❌ {ytErr}</p>}
+
                         <button onClick={uploadYouTube} disabled={ytUploading}
-                          className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                          className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
                           {ytUploading
-                            ? <><span className="animate-spin">⚙️</span> Uploading to YouTube…</>
-                            : <><span>▶</span> Upload to YouTube</>}
+                            ? <><span className="animate-spin">⚙️</span> Generating SEO + Uploading…</>
+                            : <><span>▶</span> Upload to YouTube with Auto SEO</>}
                         </button>
                         <p className="text-[10px] text-gray-400 text-center">
-                          Uses your connected YouTube account · Uploaded as Public #Shorts
+                          Connected to your YouTube account · Posted as Public Shorts
                         </p>
                       </>
                     )}
