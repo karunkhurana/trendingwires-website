@@ -148,7 +148,7 @@ function SceneCard({
       const r = await fetch(`${PIPELINE_URL}/pipeline/ai-video`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, duration: Math.min(scene.durationSec, 6), resolution: '720P' }),
+        body: JSON.stringify({ prompt, duration: Math.min(scene.durationSec, 6), resolution: '768P' }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Failed');
