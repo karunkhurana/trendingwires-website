@@ -32,6 +32,9 @@ type StoryScene = {
   text:       string;     // on-screen caption
   voiceLine:  string;     // what narrator says
   durationSec: number;
+  aiVideoPath?:   string;   // local path from MiniMax generation
+  aiVideoTaskId?: string;   // MiniMax task ID for polling
+  aiVideoStatus?: 'idle' | 'generating' | 'done' | 'error';
 };
 
 type Story = {
@@ -107,6 +110,54 @@ function SceneCard({
   onDelete: () => void;
 }) {
   const bg = BG_PRESETS[scene.bg] || BG_PRESETS['sky'];
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  // Poll AI video status
+  useEffect(() => {
+    if (!scene.aiVideoTaskId || scene.aiVideoStatus === 'done' || scene.aiVideoStatus === 'error') return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${PIPELINE_URL}/pipeline/ai-video-status/${scene.aiVideoTaskId}`);
+        if (!r.ok || !alive) return;
+        const d = await r.json();
+        if (d.status === 'done' && d.localPath) {
+          onChange({ ...scene, aiVideoPath: d.localPath, aiVideoStatus: 'done' });
+        } else if (d.status === 'fail' || d.status === 'error') {
+          onChange({ ...scene, aiVideoStatus: 'error' });
+        } else if (alive) {
+          setTimeout(poll, 3000);
+        }
+      } catch { if (alive) setTimeout(poll, 5000); }
+    };
+    poll();
+    return () => { alive = false; };
+  }, [scene.aiVideoTaskId, scene.aiVideoStatus]);
+
+  const generateAiVideo = async () => {
+    setAiGenerating(true);
+    try {
+      // Build a scene prompt from scene data
+      const bgLabel = BG_PRESETS[scene.bg]?.label || scene.bg;
+      const charDesc = [
+        scene.char1 !== 'none' ? `${scene.char1} (Indian ${scene.char1 === 'raju' ? 'boy' : 'girl'}) feeling ${scene.char1Mood}` : '',
+        scene.char2 !== 'none' ? `${scene.char2} (Indian ${scene.char2 === 'raju' ? 'boy' : 'girl'}) feeling ${scene.char2Mood}` : '',
+      ].filter(Boolean).join(' and ');
+      const prompt = `Colorful children's cartoon animation, Cocomelon style. Scene: ${bgLabel}. ${charDesc ? `Characters: ${charDesc}.` : ''} Action: ${scene.voiceLine}. Bright, cheerful, safe for kids, Indian setting.`;
+
+      const r = await fetch(`${PIPELINE_URL}/pipeline/ai-video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, duration: Math.min(scene.durationSec, 6), resolution: '720P' }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Failed');
+      onChange({ ...scene, aiVideoTaskId: d.taskId, aiVideoStatus: 'generating' });
+    } catch (e: unknown) {
+      alert('AI Video error: ' + (e instanceof Error ? e.message : 'unknown'));
+    }
+    setAiGenerating(false);
+  };
 
   return (
     <div className="border border-gray-200 rounded-2xl overflow-hidden">
@@ -188,6 +239,52 @@ function SceneCard({
             onChange={e => onChange({ ...scene, durationSec: parseInt(e.target.value) })}
             className="flex-1 accent-purple-500" />
           <span className="text-sm font-bold text-gray-600 w-10">{scene.durationSec}s</span>
+        </div>
+
+        {/* AI Video background */}
+        <div className="border border-gray-100 rounded-xl p-3 bg-gray-50 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">🤖 AI Video Background</span>
+            {scene.aiVideoStatus === 'done' && scene.aiVideoPath && (
+              <button
+                onClick={() => onChange({ ...scene, aiVideoPath: undefined, aiVideoTaskId: undefined, aiVideoStatus: 'idle' })}
+                className="text-[10px] text-red-400 hover:text-red-600">✕ Remove</button>
+            )}
+          </div>
+
+          {scene.aiVideoStatus === 'done' && scene.aiVideoPath ? (
+            <div className="flex items-center gap-2">
+              <video
+                src={`http://localhost:3002/public/${scene.aiVideoPath}`}
+                className="w-20 h-14 object-cover rounded-lg border border-green-200"
+                muted autoPlay loop playsInline
+              />
+              <div className="flex-1">
+                <p className="text-[10px] text-green-600 font-bold">✓ AI video ready</p>
+                <p className="text-[10px] text-gray-400 truncate">{scene.aiVideoPath}</p>
+              </div>
+            </div>
+          ) : scene.aiVideoStatus === 'generating' ? (
+            <div className="flex items-center gap-2 text-purple-600">
+              <span className="animate-spin text-base">⚙️</span>
+              <div>
+                <p className="text-xs font-bold">Generating AI video…</p>
+                <p className="text-[10px] text-gray-400">MiniMax Hailuo — usually 2–3 minutes</p>
+              </div>
+            </div>
+          ) : scene.aiVideoStatus === 'error' ? (
+            <div className="text-red-500 text-xs">❌ Generation failed.
+              <button onClick={generateAiVideo} className="ml-2 underline text-red-600">Retry</button>
+            </div>
+          ) : (
+            <button
+              onClick={generateAiVideo}
+              disabled={aiGenerating}
+              className="w-full border border-purple-200 text-purple-600 hover:bg-purple-50 text-xs py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+              {aiGenerating ? <><span className="animate-spin">⚙️</span> Submitting…</> : <><span>🎬</span> Generate AI Video Background</>}
+            </button>
+          )}
+          <p className="text-[9px] text-gray-400">Uses MiniMax Hailuo AI. Requires MINIMAX_API_KEY in .env</p>
         </div>
       </div>
     </div>
