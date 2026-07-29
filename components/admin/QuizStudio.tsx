@@ -2,12 +2,6 @@
 /**
  * QuizStudio.tsx
  * Admin panel for creating animated quiz videos (100% free, pure Remotion)
- *
- * Flow:
- * 1. Enter topic (e.g. "Indian History", "Science for Kids", "Cricket")
- * 2. AI generates questions + 4 options + correct answer + explanation
- * 3. Review and edit each question
- * 4. Render → preview → download / publish
  */
 
 import { useState, useEffect } from 'react';
@@ -18,23 +12,26 @@ const PIPELINE_URL = process.env.NEXT_PUBLIC_PIPELINE_URL || 'http://localhost:3
 type QuizOption = { label: string; text: string; correct: boolean };
 type Difficulty = 'easy' | 'medium' | 'hard';
 type QuizQuestion = {
-  id: number;
-  question: string;
-  options: QuizOption[];
-  explanation: string;
-  category: string;
-  difficulty: Difficulty;
+  id: number; question: string; options: QuizOption[];
+  explanation: string; category: string; difficulty: Difficulty;
 };
 type QuizConfig = {
-  title: string;
-  topic: string;
-  slug: string;
+  title: string; topic: string; slug: string;
   questions: QuizQuestion[];
-  accentColor: string;
-  bgColor: string;
+  accentColor: string; bgColor: string;
+  bgVideoUrl?: string;   // Pexels video URL (remote)
+  bgVideoPath?: string;  // local public/ path after download
 };
 type LogLine = { msg: string };
 type Job = { id: string; status: string; log: LogLine[]; result: any; error: string | null };
+
+type PexelsVideo = {
+  id: number;
+  image: string;       // thumbnail
+  videoUrl: string;    // best quality stream URL
+  duration: number;
+  user: string;
+};
 
 // ─── Job poller ───────────────────────────────────────────────────────────────
 function useJobPoller(jobId: string | null) {
@@ -67,6 +64,106 @@ const DIFF_COLORS: Record<Difficulty, string> = {
   medium: 'bg-yellow-50 text-yellow-700 border-yellow-200',
   hard: 'bg-red-50 text-red-700 border-red-200',
 };
+
+// ─── Pexels Video Picker ──────────────────────────────────────────────────────
+function PexelsVideoPicker({
+  topic, onSelect, selected,
+}: {
+  topic: string;
+  onSelect: (v: PexelsVideo | null) => void;
+  selected: PexelsVideo | null;
+}) {
+  const [query,    setQuery]    = useState('');
+  const [videos,   setVideos]   = useState<PexelsVideo[]>([]);
+  const [loading,  setLoading]  = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  const search = async (q: string) => {
+    if (!q.trim()) return;
+    setLoading(true); setSearched(true);
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/pexels-videos?q=${encodeURIComponent(q)}&per_page=9`);
+      const d = await r.json();
+      setVideos(d.videos || []);
+    } catch { setVideos([]); }
+    setLoading(false);
+  };
+
+  // Auto-search with topic when component opens
+  useEffect(() => {
+    if (topic && !searched) {
+      setQuery(topic);
+      search(topic);
+    }
+  }, [topic]);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Search bar */}
+      <div className="flex gap-2">
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && search(query)}
+          placeholder="Search Pexels videos…"
+          className="flex-1 border border-gray-200 text-gray-800 bg-gray-50 px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        />
+        <button
+          onClick={() => search(query)}
+          disabled={loading}
+          className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
+          {loading ? '…' : 'Search'}
+        </button>
+        {selected && (
+          <button
+            onClick={() => onSelect(null)}
+            className="border border-red-200 text-red-500 hover:bg-red-50 text-xs font-bold px-3 py-2 rounded-xl">
+            ✕ Remove
+          </button>
+        )}
+      </div>
+
+      {/* Selected preview */}
+      {selected && (
+        <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={selected.image} alt="selected" className="w-20 h-14 object-cover rounded-lg flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-indigo-700">✓ Background video selected</p>
+            <p className="text-[10px] text-gray-500 truncate">by {selected.user} · {selected.duration}s</p>
+          </div>
+        </div>
+      )}
+
+      {/* Results grid */}
+      {videos.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {videos.map(v => (
+            <button
+              key={v.id}
+              onClick={() => onSelect(selected?.id === v.id ? null : v)}
+              className={`relative rounded-xl overflow-hidden border-2 transition-all aspect-video ${selected?.id === v.id ? 'border-indigo-500 ring-2 ring-indigo-300' : 'border-gray-200 hover:border-indigo-300'}`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={v.image} alt="video" className="w-full h-full object-cover" />
+              <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-1">
+                <p className="text-[9px] text-white truncate">{v.duration}s</p>
+              </div>
+              {selected?.id === v.id && (
+                <div className="absolute inset-0 bg-indigo-500/20 flex items-center justify-center">
+                  <span className="text-white text-xl font-black drop-shadow">✓</span>
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {searched && !loading && videos.length === 0 && (
+        <p className="text-xs text-gray-400 text-center py-3">No videos found — try a different search</p>
+      )}
+    </div>
+  );
+}
 
 // ─── Question editor card ─────────────────────────────────────────────────────
 function QuestionCard({
@@ -206,6 +303,7 @@ export function QuizStudio() {
   const [difficulty,  setDifficulty]  = useState('mixed');
   const [language,    setLanguage]    = useState('english');
   const [voice,       setVoice]       = useState('en-IN-NeerjaExpressiveNeural');
+  const [bgVideo,     setBgVideo]     = useState<PexelsVideo | null>(null);
   const [generating,  setGenerating]  = useState(false);
   const [quiz,        setQuiz]        = useState<QuizConfig | null>(null);
   const [editQs,      setEditQs]      = useState<QuizQuestion[]>([]);
@@ -242,7 +340,7 @@ export function QuizStudio() {
   const renderQuiz = async () => {
     if (!quiz) return;
     setRendering(true); setJobId(null);
-    const finalQuiz = { ...quiz, questions: editQs, voice };
+    const finalQuiz = { ...quiz, topic, questions: editQs, voice, bgVideoUrl: bgVideo?.videoUrl || '' };
     try {
       const r = await fetch(`${PIPELINE_URL}/pipeline/quiz/render`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -347,6 +445,23 @@ export function QuizStudio() {
               <option value="en-US-JennyNeural">🇺🇸 Jenny (US Female)</option>
               <option value="en-GB-SoniaNeural">🇬🇧 Sonia (UK Female)</option>
             </select>
+          </div>
+
+          {/* Pexels background video */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+              🎬 Background Video <span className="text-gray-400 normal-case font-normal">(Pexels — free)</span>
+            </label>
+            <PexelsVideoPicker
+              topic={topic}
+              selected={bgVideo}
+              onSelect={setBgVideo}
+            />
+            {!bgVideo && (
+              <p className="text-[10px] text-gray-400 mt-1.5">
+                Optional — dark gradient used if none selected. Text always stays readable.
+              </p>
+            )}
           </div>
 
           {/* Duration estimate */}
