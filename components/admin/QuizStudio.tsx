@@ -190,34 +190,43 @@ function QuizJobProgress({ job, slug }: { job: Job; slug: string }) {
 
 // ─── Main QuizStudio ──────────────────────────────────────────────────────────
 export function QuizStudio() {
-  const [topic,       setTopic]       = useState('');
-  const [numQ,        setNumQ]        = useState(5);
-  const [difficulty,  setDifficulty]  = useState('mixed');
-  const [language,    setLanguage]    = useState('english');
-  const [voice,       setVoice]       = useState('en-IN-NeerjaExpressiveNeural');
+  const [topic,        setTopic]        = useState('');
+  const [numQ,         setNumQ]         = useState(5);
+  const [difficulty,   setDifficulty]   = useState('mixed');
+  const [language,     setLanguage]     = useState('english');
+  const [voice,        setVoice]        = useState('en-IN-NeerjaExpressiveNeural');
+  const [ttsRate,      setTtsRate]      = useState(25);
+  const [voicePreview, setVoicePreview] = useState<HTMLAudioElement | null>(null);
+  const [previewing,   setPreviewing]   = useState(false);
   const [bgVideoPath,  setBgVideoPath]  = useState('');
   const [bgVideoThumb, setBgVideoThumb] = useState('');
-  const [generating,  setGenerating]  = useState(false);
-  const [quiz,        setQuiz]        = useState<QuizConfig | null>(null);
-  const [editQs,      setEditQs]      = useState<QuizQuestion[]>([]);
-  const [genErr,      setGenErr]      = useState('');
-  const [jobId,       setJobId]       = useState<string | null>(null);
-  const [rendering,   setRendering]   = useState(false);
-  const [pipelineOk,  setPipelineOk]  = useState<boolean | null>(null);
+  const [generating,   setGenerating]   = useState(false);
+  const [quiz,         setQuiz]         = useState<QuizConfig | null>(null);
+  const [editQs,       setEditQs]       = useState<QuizQuestion[]>([]);
+  const [genErr,       setGenErr]       = useState('');
+  const [jobId,        setJobId]        = useState<string | null>(null);
+  const [rendering,    setRendering]    = useState(false);
+  const [ytUploading,  setYtUploading]  = useState(false);
+  const [ytUrl,        setYtUrl]        = useState('');
+  const [ytErr,        setYtErr]        = useState('');
+  const [pipelineOk,   setPipelineOk]   = useState<boolean | null>(null);
 
   const job = useJobPoller(jobId);
   const slug = quiz?.slug || '';
   const isRunning = job?.status === 'running' || job?.status === 'pending';
+  const isDone    = job?.status === 'done';
+  const ttsRateStr = ttsRate >= 0 ? `+${ttsRate}%` : `${ttsRate}%`;
 
   useEffect(() => {
     fetch(`${PIPELINE_URL}/health`).then(r => setPipelineOk(r.ok)).catch(() => setPipelineOk(false));
   }, []);
 
   useEffect(() => { if (quiz) setEditQs(quiz.questions); }, [quiz]);
+  useEffect(() => { voicePreview?.pause(); setVoicePreview(null); setPreviewing(false); }, [voice, ttsRate]);
 
   const generateQuiz = async () => {
     if (!topic.trim()) return;
-    setGenerating(true); setGenErr(''); setQuiz(null); setJobId(null);
+    setGenerating(true); setGenErr(''); setQuiz(null); setJobId(null); setYtUrl('');
     try {
       const r = await fetch(`${PIPELINE_URL}/pipeline/quiz/generate`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -230,10 +239,28 @@ export function QuizStudio() {
     setGenerating(false);
   };
 
+  const previewVoice = async () => {
+    if (previewing) { voicePreview?.pause(); setPreviewing(false); setVoicePreview(null); return; }
+    setPreviewing(true);
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/quiz/preview-voice`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice, rate: ttsRateStr }),
+      });
+      if (!r.ok) throw new Error('Preview failed');
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      setVoicePreview(audio);
+      audio.play();
+      audio.onended = () => { setPreviewing(false); URL.revokeObjectURL(url); };
+    } catch { setPreviewing(false); }
+  };
+
   const renderQuiz = async () => {
     if (!quiz) return;
-    setRendering(true); setJobId(null);
-    const finalQuiz = { ...quiz, topic, questions: editQs, voice, bgVideoPath };
+    setRendering(true); setJobId(null); setYtUrl(''); setYtErr('');
+    const finalQuiz = { ...quiz, topic, questions: editQs, voice, ttsRate: ttsRateStr, bgVideoPath };
     try {
       const r = await fetch(`${PIPELINE_URL}/pipeline/quiz/render`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -246,10 +273,29 @@ export function QuizStudio() {
     setRendering(false);
   };
 
+  const uploadYouTube = async () => {
+    if (!quiz || !isDone) return;
+    setYtUploading(true); setYtErr(''); setYtUrl('');
+    try {
+      const r = await fetch(`${PIPELINE_URL}/pipeline/quiz/upload-youtube`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: quiz.slug,
+          title: `${quiz.title} | Quiz #shorts`,
+          description: `Can you answer all ${editQs.length} questions about ${quiz.topic}? Drop your score! 👇\n\n#quiz #gk #trivia #shorts`,
+          tags: [quiz.topic, 'quiz', 'trivia', 'gk', 'shorts'],
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Upload failed');
+      setYtUrl(d.youtubeUrl);
+    } catch (e: unknown) { setYtErr(e instanceof Error ? e.message : 'Upload failed'); }
+    setYtUploading(false);
+  };
+
   const addQuestion = () => {
-    const newQ: QuizQuestion = {
-      id: Date.now(), question: 'New question?', difficulty: 'medium',
-      category: topic,
+    setEditQs(prev => [...prev, {
+      id: Date.now(), question: 'New question?', difficulty: 'medium', category: topic,
       options: [
         { label: 'A', text: 'Option A', correct: true },
         { label: 'B', text: 'Option B', correct: false },
@@ -257,20 +303,24 @@ export function QuizStudio() {
         { label: 'D', text: 'Option D', correct: false },
       ],
       explanation: 'Explanation here.',
-    };
-    setEditQs(prev => [...prev, newQ]);
+    }]);
   };
 
-  // Estimate video duration
   const PER_Q_SEC = (40 + 72 + 90 + 90 + 30) / 30;
   const totalSec  = Math.round(2 + editQs.length * PER_Q_SEC + 2);
   const totalMin  = Math.floor(totalSec / 60);
   const totalRemS = totalSec % 60;
 
-  const EXAMPLE_TOPICS = [
-    'Indian History', 'Cricket Facts', 'Science for Kids',
-    'Bollywood Trivia', 'General Knowledge', 'Space & Planets',
+  const VOICES = [
+    { id: 'en-IN-NeerjaExpressiveNeural', label: '🇮🇳 Neerja (Indian, Expressive)' },
+    { id: 'en-IN-PrabhatNeural',          label: '🇮🇳 Prabhat (Indian Male)' },
+    { id: 'hi-IN-MadhurNeural',           label: '🇮🇳 Madhur (Hindi Male)' },
+    { id: 'hi-IN-SwaraNeural',            label: '🇮🇳 Swara (Hindi Female)' },
+    { id: 'en-US-JennyNeural',            label: '🇺🇸 Jenny (US Female)' },
+    { id: 'en-GB-SoniaNeural',            label: '🇬🇧 Sonia (UK Female)' },
   ];
+
+  const EXAMPLE_TOPICS = ['Indian History','Cricket Facts','Science for Kids','Bollywood Trivia','General Knowledge','Space & Planets'];
 
   return (
     <div className="flex flex-col gap-5 max-w-3xl">
@@ -288,6 +338,7 @@ export function QuizStudio() {
           <p className="text-gray-400 text-xs">AI generates animated quiz questions — free, no API costs, pure Remotion.</p>
         </div>
         <div className="px-5 pb-5 flex flex-col gap-4">
+
           {/* Topic */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Quiz Topic *</label>
@@ -326,85 +377,84 @@ export function QuizStudio() {
             </div>
           </div>
 
-          {/* Voice */}
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">🎙️ Narrator Voice</label>
+          {/* ── Voice Settings box ── */}
+          <div className="border border-indigo-100 rounded-2xl p-4 bg-indigo-50/40 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-indigo-700 uppercase tracking-wider">🎙️ Voice Settings</label>
+              <button onClick={previewVoice} disabled={pipelineOk !== true}
+                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border transition-all ${
+                  previewing ? 'bg-indigo-500 text-white border-indigo-500' : 'border-indigo-200 text-indigo-600 hover:bg-indigo-100 bg-white'
+                } disabled:opacity-40`}>
+                {previewing ? '⏹ Stop' : '▶ Test Voice'}
+              </button>
+            </div>
+
             <select value={voice} onChange={e => setVoice(e.target.value)}
-              className="w-full border border-gray-200 text-gray-700 bg-gray-50 px-3 py-2 rounded-xl text-sm">
-              <option value="en-IN-NeerjaExpressiveNeural">🇮🇳 Neerja (Indian, Expressive) — recommended</option>
-              <option value="en-IN-PrabhatNeural">🇮🇳 Prabhat (Indian Male)</option>
-              <option value="hi-IN-MadhurNeural">🇮🇳 Madhur (Hindi Male)</option>
-              <option value="hi-IN-SwaraNeural">🇮🇳 Swara (Hindi Female)</option>
-              <option value="en-US-JennyNeural">🇺🇸 Jenny (US Female)</option>
-              <option value="en-GB-SoniaNeural">🇬🇧 Sonia (UK Female)</option>
+              className="w-full border border-gray-200 text-gray-700 bg-white px-3 py-2 rounded-xl text-sm">
+              {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
             </select>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-gray-600">Speaking Speed</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-indigo-600 w-12 text-right">{ttsRateStr}</span>
+                  <span className="text-[10px] text-gray-400 w-20">
+                    {ttsRate < 0 ? 'Slower' : ttsRate === 0 ? 'Normal' : ttsRate < 20 ? 'Slightly fast' : ttsRate < 35 ? 'Fast' : 'Very fast'}
+                  </span>
+                </div>
+              </div>
+              <input type="range" min="-20" max="50" step="5" value={ttsRate}
+                onChange={e => setTtsRate(parseInt(e.target.value))}
+                className="w-full accent-indigo-500" />
+              <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
+                <span>Slow (-20%)</span><span>Normal (0%)</span><span>Fast (+50%)</span>
+              </div>
+            </div>
           </div>
 
-          {/* Pexels background video */}
+          {/* Pexels BG video */}
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
-              🎬 Background Video <span className="text-gray-400 normal-case font-normal">(Pexels — free, with pagination)</span>
+              🎬 Background Video <span className="text-gray-400 normal-case font-normal">(Pexels — free)</span>
             </label>
-
-            {/* Selected preview */}
             {bgVideoPath && (
               <div className="flex items-center gap-3 bg-indigo-50 border-2 border-indigo-300 rounded-xl p-3 mb-3">
-                {bgVideoThumb && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={bgVideoThumb} alt="bg" className="w-16 h-11 object-cover rounded-lg flex-shrink-0" />
-                )}
+                {bgVideoThumb && <img src={bgVideoThumb} alt="bg" className="w-16 h-11 object-cover rounded-lg flex-shrink-0" />}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-black text-indigo-700">✓ Background video ready</p>
                   <p className="text-[10px] text-gray-500 truncate">{bgVideoPath}</p>
                 </div>
                 <button onClick={() => { setBgVideoPath(''); setBgVideoThumb(''); }}
-                  className="text-red-400 hover:text-red-600 text-xs border border-red-200 px-2 py-1 rounded-lg flex-shrink-0">
-                  ✕ Remove
-                </button>
+                  className="text-red-400 text-xs border border-red-200 px-2 py-1 rounded-lg">✕</button>
               </div>
             )}
-
-            <PexelsVideoBrowser
-              defaultQuery={topic}
-              onSelect={(path, thumb) => { setBgVideoPath(path); setBgVideoThumb(thumb); }}
-            />
-            {!bgVideoPath && (
-              <p className="text-[10px] text-gray-400 mt-1.5">
-                Optional — dark gradient used if none selected. Text always stays readable.
-              </p>
-            )}
+            <PexelsVideoBrowser defaultQuery={topic}
+              onSelect={(path, thumb) => { setBgVideoPath(path); setBgVideoThumb(thumb); }} />
+            {!bgVideoPath && <p className="text-[10px] text-gray-400 mt-1.5">Optional — dark gradient used if none selected.</p>}
           </div>
 
-          {/* Duration estimate */}
+          {/* Duration */}
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 flex items-center gap-3">
-            <span className="text-indigo-500 text-base">⏱</span>
-            <div>
-              <span className="text-xs font-bold text-indigo-700">Estimated video duration: </span>
-              <span className="text-xs text-indigo-600">
-                ~{totalMin > 0 ? `${totalMin}m ` : ''}{totalRemS}s
-              </span>
-            </div>
-            <span className="ml-auto text-[10px] text-indigo-400">YouTube Shorts friendly ≤60s for {numQ}≤5</span>
+            <span className="text-indigo-500">⏱</span>
+            <span className="text-xs font-bold text-indigo-700">~{totalMin > 0 ? `${totalMin}m ` : ''}{totalRemS}s estimated</span>
+            <span className="ml-auto text-[10px] text-indigo-400">Shorts ≤60s for ≤5 questions</span>
           </div>
 
           {genErr && <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-red-600 text-xs">{genErr}</div>}
 
           <button onClick={generateQuiz} disabled={!topic.trim() || generating || pipelineOk !== true}
-            className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
-            {generating ? <><span className="animate-spin text-base">✨</span> AI is generating questions…</> : <><span>🧠</span> Generate Quiz with AI</>}
+            className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+            {generating ? <><span className="animate-spin">✨</span> AI is generating questions…</> : <><span>🧠</span> Generate Quiz with AI</>}
           </button>
 
-          {/* Example topics */}
-          <div>
-            <p className="text-xs text-gray-400 mb-2">Try these:</p>
-            <div className="flex flex-wrap gap-2">
-              {EXAMPLE_TOPICS.map(ex => (
-                <button key={ex} onClick={() => setTopic(ex)}
-                  className="text-xs border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-full bg-white transition-colors">
-                  {ex}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {EXAMPLE_TOPICS.map(ex => (
+              <button key={ex} onClick={() => setTopic(ex)}
+                className="text-xs border border-indigo-200 text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-full bg-white transition-colors">
+                {ex}
+              </button>
+            ))}
           </div>
         </div>
       </Card>
@@ -412,7 +462,6 @@ export function QuizStudio() {
       {/* Questions editor */}
       {quiz && !isRunning && (
         <>
-          {/* Quiz summary */}
           <Card>
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-indigo-50">
               <div className="flex items-center gap-2">
@@ -422,7 +471,7 @@ export function QuizStudio() {
                   {editQs.length} questions
                 </span>
               </div>
-              <button onClick={() => { setQuiz(null); setJobId(null); }}
+              <button onClick={() => { setQuiz(null); setJobId(null); setYtUrl(''); }}
                 className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg bg-white">
                 ✏ New topic
               </button>
@@ -441,7 +490,6 @@ export function QuizStudio() {
             </div>
           </Card>
 
-          {/* Questions list */}
           <Card>
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
               <span className="font-bold text-gray-800 text-sm">✏️ Edit Questions</span>
@@ -452,8 +500,7 @@ export function QuizStudio() {
             </div>
             <div className="p-4 flex flex-col gap-4">
               {editQs.map((q, i) => (
-                <QuestionCard
-                  key={q.id} q={q} index={i} total={editQs.length}
+                <QuestionCard key={q.id} q={q} index={i} total={editQs.length}
                   onChange={updated => setEditQs(prev => prev.map((x, j) => j === i ? updated : x))}
                   onDelete={() => setEditQs(prev => prev.filter((_, j) => j !== i))}
                 />
@@ -461,7 +508,6 @@ export function QuizStudio() {
             </div>
           </Card>
 
-          {/* Render button */}
           <button onClick={renderQuiz} disabled={rendering || isRunning}
             className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white font-black text-base py-4 rounded-xl transition-all flex items-center justify-center gap-2">
             {rendering ? <><span className="animate-spin">⚙️</span> Starting render…</> : <><span>🚀</span> Render Quiz Video</>}
@@ -472,13 +518,55 @@ export function QuizStudio() {
       {/* Job progress */}
       {jobId && (
         job
-          ? <QuizJobProgress job={job} slug={slug} />
+          ? <>
+              <QuizJobProgress job={job} slug={slug} />
+
+              {/* YouTube upload — shown after render done */}
+              {isDone && (
+                <Card>
+                  <div className="px-5 py-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📤</span>
+                      <span className="font-black text-gray-800 text-sm">Upload to YouTube</span>
+                    </div>
+
+                    {ytUrl ? (
+                      <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                        <span className="text-green-600 text-xl">✅</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-green-700">Uploaded successfully!</p>
+                          <a href={ytUrl} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline truncate block">{ytUrl}</a>
+                        </div>
+                        <a href={ytUrl} target="_blank" rel="noopener noreferrer"
+                          className="text-xs border border-green-300 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 flex-shrink-0">
+                          Watch ↗
+                        </a>
+                      </div>
+                    ) : (
+                      <>
+                        {ytErr && <p className="text-xs text-red-500 bg-red-50 border border-red-200 px-3 py-2 rounded-xl">❌ {ytErr}</p>}
+                        <button onClick={uploadYouTube} disabled={ytUploading}
+                          className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                          {ytUploading
+                            ? <><span className="animate-spin">⚙️</span> Uploading to YouTube…</>
+                            : <><span>▶</span> Upload to YouTube</>}
+                        </button>
+                        <p className="text-[10px] text-gray-400 text-center">
+                          Uses your connected YouTube account · Uploaded as Public #Shorts
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </Card>
+              )}
+            </>
           : <Card>
               <div className="flex items-center gap-3 px-5 py-4">
                 <span className="animate-spin text-xl">⚙️</span>
                 <div>
                   <p className="font-bold text-gray-800 text-sm">Starting quiz render…</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Generating animated quiz video</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Generating voices and rendering</p>
                 </div>
               </div>
             </Card>
