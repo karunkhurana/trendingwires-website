@@ -205,6 +205,7 @@ export function QuizStudio() {
   const [numQ,        setNumQ]        = useState(5);
   const [difficulty,  setDifficulty]  = useState('mixed');
   const [language,    setLanguage]    = useState('english');
+  const [voice,       setVoice]       = useState('en-IN-NeerjaExpressiveNeural');
   const [generating,  setGenerating]  = useState(false);
   const [quiz,        setQuiz]        = useState<QuizConfig | null>(null);
   const [editQs,      setEditQs]      = useState<QuizQuestion[]>([]);
@@ -241,7 +242,7 @@ export function QuizStudio() {
   const renderQuiz = async () => {
     if (!quiz) return;
     setRendering(true); setJobId(null);
-    const finalQuiz = { ...quiz, questions: editQs };
+    const finalQuiz = { ...quiz, questions: editQs, voice };
     try {
       const r = await fetch(`${PIPELINE_URL}/pipeline/quiz/render`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -332,6 +333,20 @@ export function QuizStudio() {
                 <option value="hinglish">Hinglish</option>
               </select>
             </div>
+          </div>
+
+          {/* Voice */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">🎙️ Narrator Voice</label>
+            <select value={voice} onChange={e => setVoice(e.target.value)}
+              className="w-full border border-gray-200 text-gray-700 bg-gray-50 px-3 py-2 rounded-xl text-sm">
+              <option value="en-IN-NeerjaExpressiveNeural">🇮🇳 Neerja (Indian, Expressive) — recommended</option>
+              <option value="en-IN-PrabhatNeural">🇮🇳 Prabhat (Indian Male)</option>
+              <option value="hi-IN-MadhurNeural">🇮🇳 Madhur (Hindi Male)</option>
+              <option value="hi-IN-SwaraNeural">🇮🇳 Swara (Hindi Female)</option>
+              <option value="en-US-JennyNeural">🇺🇸 Jenny (US Female)</option>
+              <option value="en-GB-SoniaNeural">🇬🇧 Sonia (UK Female)</option>
+            </select>
           </div>
 
           {/* Duration estimate */}
