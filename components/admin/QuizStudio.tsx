@@ -246,9 +246,15 @@ export function QuizStudio() {
     if (previewing) { voicePreview?.pause(); setPreviewing(false); setVoicePreview(null); return; }
     setPreviewing(true);
     try {
+      // Use a language-appropriate sample text
+      const sampleText = language === 'hindi'
+        ? 'नमस्ते! मैं आपकी quiz video में इसी तरह बोलूंगा। प्रश्न 1. भारत की राजधानी क्या है? सही उत्तर है: नई दिल्ली!'
+        : language === 'hinglish'
+        ? 'Hello! Main aapki quiz video mein aisi awaaz mein bolunga. Question 1. India ki capital kya hai?'
+        : `Hello! This is how I will sound in your quiz video. Question 1. What is the capital of India? The correct answer is New Delhi!`;
       const r = await fetch(`${PIPELINE_URL}/pipeline/quiz/preview-voice`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice, rate: ttsRateStr }),
+        body: JSON.stringify({ voice, rate: ttsRateStr, text: sampleText }),
       });
       if (!r.ok) throw new Error('Preview failed');
       const blob = await r.blob();
@@ -380,7 +386,13 @@ export function QuizStudio() {
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Language</label>
-              <select value={language} onChange={e => setLanguage(e.target.value)}
+              <select value={language} onChange={e => {
+                const lang = e.target.value;
+                setLanguage(lang);
+                // Auto-switch to Hindi voice when Hindi selected
+                if (lang === 'hindi' && !voice.includes('hi-IN')) setVoice('hi-IN-MadhurNeural');
+                if (lang === 'english' && voice.includes('hi-IN')) setVoice('en-IN-NeerjaExpressiveNeural');
+              }}
                 className="w-full border border-gray-200 text-gray-700 bg-gray-50 px-3 py-2 rounded-xl text-sm">
                 <option value="english">English</option>
                 <option value="hindi">हिंदी</option>
