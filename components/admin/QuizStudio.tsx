@@ -4,7 +4,7 @@
  * Admin panel for creating animated quiz videos (100% free, pure Remotion)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PexelsVideoBrowser } from './PexelsVideoBrowser';
 
 const PIPELINE_URL = process.env.NEXT_PUBLIC_PIPELINE_URL || 'http://localhost:3333';
@@ -24,6 +24,116 @@ type QuizConfig = {
 };
 type LogLine = { msg: string };
 type Job = { id: string; status: string; log: LogLine[]; result: any; error: string | null };
+
+// ─── Trending Topics Panel ────────────────────────────────────────────────────
+type TrendingTopic = {
+  topic: string; emoji: string; category: string; views: string; trending?: boolean;
+};
+
+function TrendingTopicsPanel({
+  language, onSelect,
+}: {
+  language: string;
+  onSelect: (topic: string) => void;
+}) {
+  const [trending,   setTrending]   = useState<TrendingTopic[]>([]);
+  const [evergreen,  setEvergreen]  = useState<TrendingTopic[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [activeTab,  setActiveTab]  = useState<'trending' | 'evergreen'>('trending');
+  const [lastUpdated, setLastUpdated] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const lang = language === 'hindi' ? 'hi' : 'en';
+      const r = await fetch(`${PIPELINE_URL}/pipeline/trending-topics?lang=${lang}`);
+      const d = await r.json();
+      setTrending(d.trending || []);
+      setEvergreen(d.evergreen || []);
+      setLastUpdated(d.lastUpdated ? new Date(d.lastUpdated).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '');
+    } catch { /* silent */ }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [language]);
+
+  const items = activeTab === 'trending' ? trending : evergreen;
+  const showTrending = trending.length > 0;
+
+  return (
+    <div className="flex flex-col gap-0 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden h-fit">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-orange-50 to-red-50">
+        <div className="flex items-center gap-2">
+          <span className="text-base">🔥</span>
+          <span className="font-black text-gray-800 text-sm">Trending Topics</span>
+        </div>
+        <button onClick={load} disabled={loading}
+          className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 px-2 py-1 rounded-lg bg-white disabled:opacity-50">
+          {loading ? '⟳' : '↻ Refresh'}
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-100">
+        {showTrending && (
+          <button onClick={() => setActiveTab('trending')}
+            className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'trending' ? 'text-red-500 border-b-2 border-red-500 bg-red-50/50' : 'text-gray-400 hover:text-gray-600'}`}>
+            🔴 Live Trends
+          </button>
+        )}
+        <button onClick={() => setActiveTab('evergreen')}
+          className={`flex-1 py-2 text-xs font-bold transition-colors ${activeTab === 'evergreen' ? 'text-indigo-500 border-b-2 border-indigo-500 bg-indigo-50/50' : 'text-gray-400 hover:text-gray-600'}`}>
+          ⭐ Top Categories
+        </button>
+      </div>
+
+      {/* List */}
+      <div className="flex flex-col overflow-y-auto" style={{ maxHeight: 420 }}>
+        {loading ? (
+          Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="px-4 py-3 border-b border-gray-50 animate-pulse">
+              <div className="h-3 bg-gray-100 rounded w-3/4 mb-1.5" />
+              <div className="h-2 bg-gray-50 rounded w-1/2" />
+            </div>
+          ))
+        ) : items.length === 0 ? (
+          <div className="px-4 py-6 text-center text-gray-400 text-xs">
+            {activeTab === 'trending' ? 'No live trends — try Top Categories' : 'No topics'}
+          </div>
+        ) : (
+          items.map((t, i) => (
+            <button key={i} onClick={() => onSelect(t.topic)}
+              className="px-4 py-2.5 border-b border-gray-50 hover:bg-indigo-50 text-left flex items-center gap-3 group transition-colors">
+              <span className="text-lg flex-shrink-0">{t.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-gray-800 group-hover:text-indigo-700 truncate leading-tight">
+                  {t.topic}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${t.trending ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}>
+                    {t.category}
+                  </span>
+                  <span className="text-[9px] text-gray-400">{t.views} views</span>
+                </div>
+              </div>
+              <span className="text-indigo-400 text-[10px] opacity-0 group-hover:opacity-100 flex-shrink-0 font-bold">
+                Use →
+              </span>
+            </button>
+          ))
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+        <p className="text-[9px] text-gray-400">
+          {lastUpdated ? `Updated ${lastUpdated}` : 'Click a topic to use it'} · India 🇮🇳
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // ─── Job poller ───────────────────────────────────────────────────────────────
 function useJobPoller(jobId: string | null) {
@@ -341,7 +451,9 @@ export function QuizStudio() {
   const EXAMPLE_TOPICS = ['Indian History','Cricket Facts','Science for Kids','Bollywood Trivia','General Knowledge','Space & Planets'];
 
   return (
-    <div className="flex flex-col gap-5 max-w-3xl">
+    <div className="flex gap-5 items-start">
+      {/* ── Left: Quiz creator ── */}
+      <div className="flex flex-col gap-5 flex-1 min-w-0 max-w-2xl">
 
       {/* Pipeline status */}
       <div className={`border rounded-xl px-4 py-2.5 flex items-center gap-2 text-xs ${pipelineOk ? 'bg-green-50 border-green-200 text-green-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
@@ -641,6 +753,22 @@ export function QuizStudio() {
               </div>
             </Card>
       )}
+      </div>{/* end left column */}
+
+      {/* ── Right: Trending side panel ── */}
+      <div className="w-64 flex-shrink-0 sticky top-20">
+        <TrendingTopicsPanel
+          language={language}
+          onSelect={(t) => {
+            setTopic(t);
+            setQuiz(null);
+            setJobId(null);
+            setYtUrl('');
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      </div>
     </div>
   );
 }
