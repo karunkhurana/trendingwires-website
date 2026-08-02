@@ -313,7 +313,7 @@ export function QuizStudio() {
   const [numQ,         setNumQ]         = useState(5);
   const [difficulty,   setDifficulty]   = useState('mixed');
   const [language,     setLanguage]     = useState('english');
-  const [voice,        setVoice]        = useState('en-IN-NeerjaExpressiveNeural');
+  const [voice,        setVoice]        = useState('en-IN-Chirp3-HD-Aoede');
   const [ttsRate,      setTtsRate]      = useState(25);
   const [voicePreview, setVoicePreview] = useState<HTMLAudioElement | null>(null);
   const [previewing,   setPreviewing]   = useState(false);
@@ -449,12 +449,21 @@ export function QuizStudio() {
   const totalRemS = totalSec % 60;
 
   const VOICES = [
-    { id: 'en-IN-NeerjaExpressiveNeural', label: '🇮🇳 Neerja (Indian, Expressive)' },
-    { id: 'en-IN-PrabhatNeural',          label: '🇮🇳 Prabhat (Indian Male)' },
-    { id: 'hi-IN-MadhurNeural',           label: '🇮🇳 Madhur (Hindi Male)' },
-    { id: 'hi-IN-SwaraNeural',            label: '🇮🇳 Swara (Hindi Female)' },
-    { id: 'en-US-JennyNeural',            label: '🇺🇸 Jenny (US Female)' },
-    { id: 'en-GB-SoniaNeural',            label: '🇬🇧 Sonia (UK Female)' },
+    // ── Google Chirp3-HD (best quality, natural) ──
+    { id: 'en-IN-Chirp3-HD-Aoede',    label: '⭐ Google Chirp3 HD — Indian Female (Best)' },
+    { id: 'hi-IN-Chirp3-HD-Achird',   label: '⭐ Google Chirp3 HD — Hindi Male (Best)' },
+    { id: 'en-IN-Chirp3-HD-Achird',   label: '⭐ Google Chirp3 HD — Indian Male' },
+    { id: 'hi-IN-Chirp3-HD-Aoede',    label: '⭐ Google Chirp3 HD — Hindi Female' },
+    { id: 'hi-IN-Chirp3-HD-Fenrir',   label: '⭐ Google Chirp3 HD — Hindi Male 2' },
+    // ── Google Neural2 (very good, slightly less natural) ──
+    { id: 'hi-IN-Neural2-B',          label: '🔵 Google Neural2 — Hindi Male' },
+    { id: 'hi-IN-Neural2-C',          label: '🔵 Google Neural2 — Hindi Male 2' },
+    { id: 'hi-IN-Neural2-A',          label: '🔵 Google Neural2 — Hindi Female' },
+    { id: 'en-IN-Neural2-A',          label: '🔵 Google Neural2 — Indian English Female' },
+    // ── Edge TTS fallback (free, slightly robotic) ──
+    { id: 'en-IN-NeerjaExpressiveNeural', label: '🔸 Edge TTS — Neerja (Indian Female)' },
+    { id: 'hi-IN-MadhurNeural',           label: '🔸 Edge TTS — Madhur (Hindi Male)' },
+    { id: 'en-IN-PrabhatNeural',          label: '🔸 Edge TTS — Prabhat (Indian Male)' },
   ];
 
   const EXAMPLE_TOPICS = ['Indian History','Cricket Facts','Science for Kids','Bollywood Trivia','General Knowledge','Space & Planets'];
@@ -511,8 +520,8 @@ export function QuizStudio() {
                 const lang = e.target.value;
                 setLanguage(lang);
                 // Auto-switch to Hindi voice when Hindi selected
-                if (lang === 'hindi' && !voice.includes('hi-IN')) setVoice('hi-IN-MadhurNeural');
-                if (lang === 'english' && voice.includes('hi-IN')) setVoice('en-IN-NeerjaExpressiveNeural');
+                if (lang === 'hindi' && !voice.includes('hi-IN')) setVoice('hi-IN-Chirp3-HD-Achird');
+                if (lang === 'english' && voice.includes('hi-IN')) setVoice('en-IN-Chirp3-HD-Aoede');
               }}
                 className="w-full border border-gray-200 text-gray-700 bg-gray-50 px-3 py-2 rounded-xl text-sm">
                 <option value="english">English</option>
