@@ -27,7 +27,7 @@ type Job = { id: string; status: string; log: LogLine[]; result: any; error: str
 
 // ─── Trending Topics Panel ────────────────────────────────────────────────────
 type TrendingTopic = {
-  topic: string; emoji: string; category: string; views: string; trending?: boolean;
+  topic: string; emoji: string; category: string; views: string; trending?: boolean; image?: string;
 };
 
 function TrendingTopicsPanel({
@@ -51,6 +51,9 @@ function TrendingTopicsPanel({
       setTrending(d.trending || []);
       setEvergreen(d.evergreen || []);
       setLastUpdated(d.lastUpdated ? new Date(d.lastUpdated).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '');
+      // Auto-switch to trending tab if live data available
+      if (d.trending?.length > 0) setActiveTab('trending');
+      else setActiveTab('evergreen');
     } catch { /* silent */ }
     setLoading(false);
   };
@@ -105,7 +108,13 @@ function TrendingTopicsPanel({
           items.map((t, i) => (
             <button key={i} onClick={() => onSelect(t.topic)}
               className="px-4 py-2.5 border-b border-gray-50 hover:bg-indigo-50 text-left flex items-center gap-3 group transition-colors">
-              <span className="text-lg flex-shrink-0">{t.emoji}</span>
+              {/* Image or emoji */}
+              {t.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={t.image} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0 border border-gray-100" />
+              ) : (
+                <span className="text-lg flex-shrink-0 w-9 text-center">{t.emoji}</span>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-gray-800 group-hover:text-indigo-700 truncate leading-tight">
                   {t.topic}
@@ -114,7 +123,7 @@ function TrendingTopicsPanel({
                   <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${t.trending ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'}`}>
                     {t.category}
                   </span>
-                  <span className="text-[9px] text-gray-400">{t.views} views</span>
+                  <span className="text-[9px] text-gray-400">{t.views}</span>
                 </div>
               </div>
               <span className="text-indigo-400 text-[10px] opacity-0 group-hover:opacity-100 flex-shrink-0 font-bold">
