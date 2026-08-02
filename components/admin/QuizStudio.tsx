@@ -409,8 +409,9 @@ export function QuizStudio() {
       let uploadedThumbPath = thumbPath;
       if (thumbFile && !uploadedThumbPath) {
         const fd = new FormData();
-        fd.append('thumbnail', thumbFile);   // field name matches server
+        fd.append('thumbnail', thumbFile);
         fd.append('slug', `quiz-${quiz.slug}`);
+        fd.append('portrait', 'true');  // quiz = Shorts = 9:16
         const tr = await fetch(`${PIPELINE_URL}/pipeline/upload-thumbnail`, { method: 'POST', body: fd });
         if (tr.ok) { const td = await tr.json(); uploadedThumbPath = td.path || ''; setThumbPath(td.path || ''); }
       }
