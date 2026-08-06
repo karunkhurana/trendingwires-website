@@ -187,9 +187,13 @@ export function GurbaniStudio() {
   const [pipelineOk,   setPipelineOk]   = useState<boolean | null>(null);
   const [rendering,    setRendering]    = useState(false);
   const [jobId,        setJobId]        = useState<string | null>(null);
+  const [bgVideo,     setBgVideo]      = useState('auto');  // 'auto' | path | 'none'
+  const [bgm,         setBgm]          = useState('auto');  // 'auto' | path | 'none'
+  const [assets,      setAssets]       = useState<{ bgVideos: string[]; bgms: string[] }>({ bgVideos: [], bgms: [] });
 
   useEffect(() => {
     fetch(`${PIPELINE_URL}/health`).then(r => setPipelineOk(r.ok)).catch(() => setPipelineOk(false));
+    fetch(`${PIPELINE_URL}/pipeline/gurbani/assets`).then(r => r.json()).then(setAssets).catch(() => {});
   }, []);
 
   // Search by keyword
@@ -285,13 +289,15 @@ export function GurbaniStudio() {
     if (!selectedLines.length || !audioFile) return;
     setRendering(true);
     try {
-      // Upload audio
       const fd = new FormData();
       fd.append('audio', audioFile);
       fd.append('trimStart', String(trimStart));
       fd.append('trimEnd', String(trimEnd));
       fd.append('lines', JSON.stringify(selectedLines));
       fd.append('meaningLang', meaningLang);
+      fd.append('bgVideo', bgVideo);
+      fd.append('bgm', bgm);
+      fd.append('title', selectedLines[0]?.gurmukhi?.slice(0, 40) || '');
       const r = await fetch(`${PIPELINE_URL}/pipeline/gurbani/render`, { method: 'POST', body: fd });
       if (!r.ok) throw new Error(await r.text());
       const d = await r.json();
@@ -453,6 +459,40 @@ export function GurbaniStudio() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Background Video picker */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">🎬 Background Video</label>
+              <select value={bgVideo} onChange={e => setBgVideo(e.target.value)}
+                className="w-full border border-gray-200 text-gray-700 bg-gray-50 px-3 py-2.5 rounded-xl text-sm">
+                <option value="auto">🔄 Auto-rotate (picks randomly from folder)</option>
+                <option value="none">❌ No video — dark gradient only</option>
+                {assets.bgVideos.map(v => (
+                  <option key={v} value={v}>🎬 {v.split('/').pop()}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-gray-400 mt-1">
+                Add videos to <code className="bg-gray-100 px-1 rounded">public/videos/gurbani/</code> for auto-rotation
+                {assets.bgVideos.length > 0 && ` · ${assets.bgVideos.length} available`}
+              </p>
+            </div>
+
+            {/* BGM picker */}
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">🎵 Background Music</label>
+              <select value={bgm} onChange={e => setBgm(e.target.value)}
+                className="w-full border border-gray-200 text-gray-700 bg-gray-50 px-3 py-2.5 rounded-xl text-sm">
+                <option value="auto">🔄 Auto-rotate (picks randomly from folder)</option>
+                <option value="none">🔇 No background music</option>
+                {assets.bgms.map(m => (
+                  <option key={m} value={m}>🎵 {m.split('/').pop()?.replace('.mp3', '')}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-gray-400 mt-1">
+                Add harmonium/kirtan loops to <code className="bg-gray-100 px-1 rounded">public/audio/gurbani/bgm/</code>
+                {assets.bgms.length > 0 && ` · ${assets.bgms.length} available`}
+              </p>
             </div>
           </div>
         </Card>
